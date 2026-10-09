@@ -40,7 +40,7 @@ def faulty(tmp_path_factory) -> Flight:
     return fly(tmp_path_factory.mktemp("no_avoidance"), "no-avoidance", DURATION_S, 4571, START_M)
 
 
-# --- Safety: the close pass (HLR-001, HLR-002) ---------------------------------------------------
+# --- Safety: the close pass (HLR-001, HLR-002)
 
 def test_close_pass_keeps_10_m_from_the_line(nominal: Flight) -> None:
     closest = min(nominal.truth, key=lambda row: row["distance_to_line_m"])
@@ -75,7 +75,7 @@ def test_faulty_autopilot_flies_the_plan_while_node_a_warns(faulty: Flight) -> N
     assert all(row["keep_out_m"] == 0.0 for row in faulty.truth)
 
 
-# --- Navigation (HLR-008, HLR-010) -----------------------------------------------------------------
+# --- Navigation (HLR-008, HLR-010)
 
 def test_magnetometer_is_flagged_only_near_the_line(faulty: Flight) -> None:
     disturbed = faulty.messages("a", "nav: magnetometer disturbed")
@@ -113,7 +113,7 @@ def test_magnetometer_heading_matches_truth(nominal: Flight) -> None:
     assert max(errors) < 6.0
 
 
-# --- Links (HLR-011, HLR-012) -------------------------------------------------------------------
+# --- Links (HLR-011, HLR-012)
 
 def test_gps_runs_at_5_fixes_per_second(nominal: Flight) -> None:
     rates = [int(m.split()[1]) for t, m in nominal.messages("a", "gps: ")
