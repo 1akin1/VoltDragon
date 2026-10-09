@@ -73,7 +73,8 @@ Phase 1 complete: bare-metal Node A with its own startup code, linker script,
 register-level UART, watchdog, fault handler and a reset record that survives resets.
 
 Phase 2 in progress: Node A reads an LSM9DS1 IMU over a register-level I2C driver
-at 100 Hz. See the [roadmap](docs/roadmap.md).
+at 100 Hz and records flight data at 10 Hz to an MT25Q SPI flash, without ever
+waiting for the flash in the main loop. See the [roadmap](docs/roadmap.md).
 
 ## Limitations: to be verified in the hardware phase
 

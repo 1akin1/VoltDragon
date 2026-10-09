@@ -24,7 +24,7 @@ int main(void)
     for (;;)
     {
         iwdg_kick();
-        node_debug_console_poll();
+        (void)node_debug_console_poll();
 
         const uint32_t now_ms = systick_now_ms();
         if ((now_ms - last_heartbeat_ms) >= HEARTBEAT_PERIOD_MS)

@@ -49,13 +49,13 @@ void node_boot(const char *node_name, uint32_t watchdog_ms)
     print_help();
 }
 
-void node_debug_console_poll(void)
+char node_debug_console_poll(void)
 {
     char key;
 
     if (!uart_try_getc(BOARD_CONSOLE_UART, &key))
     {
-        return;
+        return NODE_KEY_NONE;
     }
 
     switch (key)
@@ -85,7 +85,8 @@ void node_debug_console_poll(void)
             print_help();
             break;
         default:
-            /* Ignore unknown keys, including line endings. */
-            break;
+            /* Not a common key: let the node handle it. */
+            return key;
     }
+    return NODE_KEY_NONE;
 }

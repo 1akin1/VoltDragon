@@ -25,6 +25,7 @@ Send single characters on the UART window (or `usart2 WriteChar <ascii>` in the 
 | `w` | Hang the main loop; the watchdog resets the node after about 500 ms |
 | `r` | Software reset |
 | `?` | Help |
+| `d` | Node A only: read back and print the last 5 flight-log records from SPI flash |
 
 ## Fault handling
 

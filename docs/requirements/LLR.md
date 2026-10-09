@@ -54,3 +54,17 @@ HLR → LLR → code → test traceability matrix is produced in Phase 6.
 | LLR-044 | Raw readings shall be converted with the datasheet sensitivities (0.061 mg, 8.75 mdps and 0.14 mgauss per LSB), rounded to the nearest unit. | HLR-007 | `lsm9ds1.c` | `Should Report The Sensor Values Fed To The Model`, `Should Track Changing Sensor Values` |
 | LLR-045 | A failed IMU read shall mark the sample invalid until the next successful read, and an invalid sample shall not be returned to its users. | HLR-010 | `imu.c` | Inspection (runtime fault injection planned) |
 | LLR-046 | Once per second Node A shall log the number of samples taken in the last second, the number of failed reads and the latest sample. | (derived) | `imu.c` | `Should Sample The Imu At 100 Hz` |
+
+## Flight data recorder (Node A)
+
+| ID | Requirement | Parent | Code | Test |
+|----|-------------|--------|------|------|
+| LLR-050 | The flight-data flash shall be an MT25Q on SPI1 (PA5/PA6/PA7, mode 0, 8 MHz) with a software chip select on PA4. Every SPI status wait shall be bounded. | (derived) | `board.c`, `spi.c`, `mt25q.c` | All `node_a_flashlog.robot` tests |
+| LLR-051 | At start-up Node A shall check the flash JEDEC ID (Micron, 8 to 16 MiB). If the check fails, it shall log the cause and keep running without the recorder. | HLR-018 | `mt25q.c`, `flashlog.c` | `Should Find An Empty Flash On First Boot`, `Should Keep Running Without A Flash` |
+| LLR-052 | The log shall be an append-only array of 64-byte records, each holding a magic number, type, payload length, a sequence number equal to its slot index, a timestamp and a CRC-32. | HLR-018 | `flashlog.c` | `Should Record The Boot And The Imu Data` |
+| LLR-053 | At start-up the end of the log shall be found by a binary search for the first erased slot, and new records shall be appended after the existing ones. | HLR-018 | `flashlog.c` | `Should Keep The Log Across A Reset` |
+| LLR-054 | Node A shall record a boot record (reset cause and count) at start-up and the latest valid IMU sample every 100 ms (10 Hz). | HLR-018 | `main.c` | `Should Record At 10 Hz Without Losses`, `Should Record The Boot And The Imu Data` |
+| LLR-055 | Flash program and erase operations shall not be waited for in the main loop. Records shall be queued in RAM (8 records) and written by a polled state machine. | HLR-007, HLR-018 | `flashlog.c`, `mt25q.c` | `Should Sample The Imu At 100 Hz` (rate unaffected), Inspection |
+| LLR-056 | Each 4 KiB subsector shall be erased just before its first record is written. | HLR-018 | `flashlog.c` | `Should Cross Erase Boundaries Without Errors` |
+| LLR-057 | Each record shall be read back and compared after programming. On a mismatch, the slot shall be left as written and the record retried in the next slot. | HLR-018 | `flashlog.c` | Inspection (fault injection planned) |
+| LLR-058 | Records that cannot be queued or written (queue full, flash full) shall be counted as dropped. Flash errors shall be counted, and both counts shall be logged once per second. | HLR-018 | `flashlog.c` | `Should Record At 10 Hz Without Losses` |

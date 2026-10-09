@@ -111,6 +111,7 @@ _Static_assert(offsetof(rcc_regs_t, CSR) == 0x74U, "RCC layout");
 #define RCC_APB1ENR_USART2EN    (1UL << 17)
 #define RCC_APB1ENR_I2C1EN      (1UL << 21)
 #define RCC_APB1RSTR_I2C1RST    (1UL << 21)
+#define RCC_APB2ENR_SPI1EN      (1UL << 12)
 
 #define RCC_CSR_RMVF            (1UL << 24)
 #define RCC_CSR_BORRSTF         (1UL << 25)
@@ -137,6 +138,7 @@ typedef struct
 
 _Static_assert(offsetof(gpio_regs_t, AFR) == 0x20U, "GPIO layout");
 
+#define GPIO_MODE_OUTPUT        (1UL)
 #define GPIO_MODE_AF            (2UL)
 #define GPIO_PUPD_PULL_UP       (1UL)
 
@@ -196,6 +198,36 @@ _Static_assert(offsetof(i2c_regs_t, FLTR) == 0x24U, "I2C layout");
 #define I2C_SR1_AF              (1UL << 10)
 #define I2C_SR2_BUSY            (1UL << 1)
 
+/** SPI (I2S registers not used). */
+typedef struct
+{
+    volatile uint32_t CR1;
+    volatile uint32_t CR2;
+    volatile uint32_t SR;
+    volatile uint32_t DR;
+    volatile uint32_t CRCPR;
+    volatile uint32_t RXCRCR;
+    volatile uint32_t TXCRCR;
+    volatile uint32_t I2SCFGR;
+    volatile uint32_t I2SPR;
+} spi_regs_t;
+
+_Static_assert(offsetof(spi_regs_t, DR) == 0x0CU, "SPI layout");
+_Static_assert(offsetof(spi_regs_t, I2SPR) == 0x20U, "SPI layout");
+
+#define SPI_CR1_CPHA            (1UL << 0)
+#define SPI_CR1_CPOL            (1UL << 1)
+#define SPI_CR1_MSTR            (1UL << 2)
+#define SPI_CR1_BR_SHIFT        (3U)
+#define SPI_CR1_BR_MASK         (7UL << SPI_CR1_BR_SHIFT)
+#define SPI_CR1_SPE             (1UL << 6)
+#define SPI_CR1_SSI             (1UL << 8)
+#define SPI_CR1_SSM             (1UL << 9)
+#define SPI_SR_RXNE             (1UL << 0)
+#define SPI_SR_TXE              (1UL << 1)
+#define SPI_SR_OVR              (1UL << 6)
+#define SPI_SR_BSY              (1UL << 7)
+
 /** Independent watchdog (0x40003000). */
 typedef struct
 {
@@ -214,6 +246,7 @@ typedef struct
 #define GPIOB   ((gpio_regs_t *)0x40020400UL)
 #define USART2  ((usart_regs_t *)0x40004400UL)
 #define I2C1    ((i2c_regs_t *)0x40005400UL)
+#define SPI1    ((spi_regs_t *)0x40013000UL)
 #define IWDG    ((iwdg_regs_t *)0x40003000UL)
 
 #endif /* STM32F4_REGS_H */

@@ -3,12 +3,14 @@
 # linked, even though no code references them by name.
 add_library(voltdragon_common OBJECT
     src/board.c
+    src/crc32.c
     src/fault.c
     src/i2c.c
     src/iwdg.c
     src/log.c
     src/node_boot.c
     src/reset_info.c
+    src/spi.c
     src/startup_stm32f4.c
     src/systick.c
     src/uart.c)

@@ -6,6 +6,7 @@
 
 #include <stddef.h>
 
+#include "crc32.h"
 #include "stm32f4_regs.h"
 
 #define RESET_INFO_MAGIC        (0x51A7B007UL)
@@ -32,23 +33,6 @@ static reset_cause_t  s_cause;
 static bool           s_flags_reliable;
 static bool           s_had_fault;
 static fault_record_t s_last_fault;
-
-/* Bitwise CRC-32 (IEEE 802.3, reflected). Small and fast enough for ~70 bytes. */
-static uint32_t crc32(const uint8_t *data, size_t len)
-{
-    uint32_t crc = 0xFFFFFFFFUL;
-
-    for (size_t i = 0U; i < len; ++i)
-    {
-        crc ^= data[i];
-        for (uint32_t bit = 0U; bit < 8U; ++bit)
-        {
-            const uint32_t mask = 0U - (crc & 1U);
-            crc = (crc >> 1) ^ (0xEDB88320UL & mask);
-        }
-    }
-    return ~crc;
-}
 
 static uint32_t record_crc(void)
 {

@@ -7,6 +7,9 @@
 
 #include <stdint.h>
 
+/** Returned by node_debug_console_poll() when there is no key for the node to handle. */
+#define NODE_KEY_NONE ((char)0)
+
 /**
  * Brings up the board, console and time base, reports the reset cause, the
  * reset counter and any fault from the previous run, then starts the watchdog.
@@ -18,6 +21,8 @@ void node_boot(const char *node_name, uint32_t watchdog_ms);
 
 /**
  * Polls the console for single-key debug commands. Call from the main loop.
+ * Returns any other key so the node can handle its own commands, or
+ * NODE_KEY_NONE if nothing was received or the key was handled here.
  *
  *   f  trigger a HardFault (undefined instruction)
  *   z  trigger a divide-by-zero fault
@@ -26,6 +31,6 @@ void node_boot(const char *node_name, uint32_t watchdog_ms);
  *   r  request a software reset
  *   ?  print help
  */
-void node_debug_console_poll(void);
+char node_debug_console_poll(void);
 
 #endif /* NODE_BOOT_H */

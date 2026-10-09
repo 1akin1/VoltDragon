@@ -5,3 +5,14 @@ using "./stm32f407.repl"
 imu: Sensors.LSM9DS1_IMU @ i2c1 0x6B
 
 mag: Sensors.LSM9DS1_Magnetic @ i2c1 0x1E
+
+// MT25Q 128 Mbit (16 MiB) flight-data flash on SPI1. PA4 drives its chip select:
+// raising it ends the current command, as on the real part.
+spiflash: SPI.Micron_MT25Q @ spi1
+    underlyingMemory: spiflash_mem
+
+spiflash_mem: Memory.MappedMemory
+    size: 0x1000000
+
+gpioPortA:
+    4 -> spiflash@0
