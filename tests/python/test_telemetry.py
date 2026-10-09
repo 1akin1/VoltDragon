@@ -1,19 +1,13 @@
 """Tests for the ground station's telemetry decoder against the reference packet."""
 
 import pytest
+from packets import REFERENCE
 
 from ground_station.telemetry import (
     PACKET_LEN,
     SequenceMonitor,
     TelemetryError,
     decode,
-)
-
-# Reference packet from docs/telemetry.md; the firmware encoder is tested against it too.
-REFERENCE = bytes.fromhex(
-    "5644544d023f50000700000040e20100c0d40100010003000cfefa00e7031a04"
-    "fcd600001f018dff35fe0901e803000001000000020000009246c8172ef88c13"
-    "22247c1708023c0096000000c88e7318"
 )
 
 

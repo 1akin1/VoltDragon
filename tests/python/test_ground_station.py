@@ -4,12 +4,12 @@ import dataclasses
 import struct
 
 import pytest
+from packets import REFERENCE
 
 from ground_station.state import GroundState
 from ground_station.telemetry import Telemetry, decode, encode
 from sim.plant.route import Route
 from sim.plant.vec import Vec3
-from tests.python.test_telemetry import REFERENCE
 
 ROUTE = Route.load("line_a")
 ALL_OK = 0x01 | 0x02 | 0x04 | 0x08 | 0x10 | (1 << 5)
