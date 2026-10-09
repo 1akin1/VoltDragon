@@ -61,9 +61,10 @@ Wait For Node B
 Should Deliver Node A Data To Node B At 50 Hz
     Create System
     Feed Node A Imu
-    # Four messages at 50 Hz each; the first second includes start-up, so check the second one.
+    # Five messages at 50 Hz each (no GPS here, so no position messages); the first
+    # second includes start-up, so check the second one.
     Wait For Node B    heartbeat 2
-    Wait For Node B    can: rx 200/s, ${CLEAN_LINK}
+    Wait For Node B    can: rx 250/s, ${CLEAN_LINK}
     # Values as Node A measured them (Renode IMU model gain: see node_a_imu.robot).
     # The age depends on where the report falls in the 5 ms CAN rotation; freshness is
     # checked by system_telemetry.robot (Should Flag Fresh Node A Data).
@@ -87,12 +88,12 @@ Should Count A Lost Frame
 Should Filter Out Foreign Identifiers In Hardware
     Create System
     # Inject in steady state: the first second also counts a start-up frame.
-    Wait For Line On Uart    can: tx 200/s    testerId=${A}
+    Wait For Line On Uart    can: tx 250/s    testerId=${A}
     Press On Node A    u
     Wait For Line On Uart    injected fault 3    testerId=${A}
     # Node A sent one extra frame, but Node B's filter never let it through.
-    Wait For Line On Uart    can: tx 201/s    testerId=${A}
-    Wait For Node B    can: rx 200/s, ${CLEAN_LINK}
+    Wait For Line On Uart    can: tx 251/s    testerId=${A}
+    Wait For Node B    can: rx 250/s, ${CLEAN_LINK}
 
 Should Resynchronise When Node A Restarts
     Create System
@@ -101,7 +102,7 @@ Should Resynchronise When Node A Restarts
     Wait For Line On Uart    reset cause: SOFTWARE, reset count: 1    testerId=${A}
     Wait For Node B    can: Node A restarted (reset count 1)
     # The restarted sequence counters are not counted as lost frames.
-    Wait For Node B    can: rx 200/s, ${CLEAN_LINK}
+    Wait For Node B    can: rx 250/s, ${CLEAN_LINK}
     Wait For Node B    resets 1, imu ok
 
 Should Report Link Statistics On The Command Interface
@@ -114,8 +115,8 @@ Should Report Link Statistics On The Command Interface
 Should Flag Missing Imu Data From Node A
     Create System    platform_a=${ROOT}/renode/stm32f407.repl
     Wait For Line On Uart    imu: init failed    testerId=${A}
-    # Only STATUS flows (50 frames/s), and it reports the IMU as invalid and no recorder.
-    Wait For Node B    can: rx 50/s, ${CLEAN_LINK}
+    # Only STATUS and NAV flow (100 frames/s); STATUS reports the IMU as invalid and no recorder.
+    Wait For Node B    can: rx 100/s, ${CLEAN_LINK}
     Wait For Node B    imu invalid, recorder off
 
 Should Report No Data Without Node A

@@ -47,6 +47,7 @@ static void build(tlm_packet_t *p, uint32_t now_ms)
     p->can_rejected = can.rejected;
     p->can_lost = can.lost;
 
+    p->gps_age_ms = (uint16_t)U16_MAX;
     if (!have_a)
     {
         p->node_a_age_ms = (uint16_t)U16_MAX;
@@ -74,6 +75,34 @@ static void build(tlm_packet_t *p, uint32_t now_ms)
     if ((a.status.flags & CANMSG_STATUS_RECORDER_OK) != 0U)
     {
         p->flags |= TLM_FLAG_RECORDER_OK;
+    }
+
+    /* Navigation: heading, magnetometer integrity and its source, from the NAV message. */
+    p->heading_cdeg = a.nav.heading_cdeg;
+    p->field_mgauss = a.nav.field_mgauss;
+    p->speed_dmps = a.nav.speed_dmps;
+    if ((a.nav.flags & CANMSG_NAV_MAG_OK) != 0U)
+    {
+        p->flags |= TLM_FLAG_MAG_OK;
+    }
+    const uint32_t source = ((uint32_t)a.nav.flags & CANMSG_NAV_SOURCE_MASK) >>
+                            CANMSG_NAV_SOURCE_SHIFT;
+    p->flags |= (uint8_t)((source << TLM_HEADING_SOURCE_SHIFT) & TLM_HEADING_SOURCE_MASK);
+
+    /* Position: the last GPS fix Node A forwarded, with its age. */
+    if (a.any_gps)
+    {
+        const uint32_t gps_age = now_ms - a.gps_ms;
+        p->gps_age_ms = (uint16_t)saturate(gps_age, U16_MAX);
+        p->lat_e7 = a.gps.lat_e7;
+        p->lon_e7 = a.gps.lon_e7;
+        p->alt_msl_dm = a.gps.alt_msl_dm;
+        p->gps_quality = a.gps.quality;
+        p->gps_satellites = a.gps.satellites;
+        if ((gps_age < TLM_GPS_FRESH_MS) && ((a.nav.flags & CANMSG_NAV_GPS_FIX) != 0U))
+        {
+            p->flags |= TLM_FLAG_GPS_FIX;
+        }
     }
 }
 

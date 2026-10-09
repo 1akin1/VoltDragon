@@ -27,9 +27,9 @@ Test Teardown       Test Teardown
 ${ROOT}             ${CURDIR}/../..
 ${ELF_A}            ${ROOT}/build/debug/firmware/node_a/node_a.elf
 ${ELF_B}            ${ROOT}/build/debug/firmware/node_b/node_b.elf
-# Broadcast from Node B (02:00:00:56:44:02) to port 5600: Ethernet, IPv4 (UDP, 88 bytes,
-# 192.168.10.2 -> 192.168.10.255) and UDP (68 bytes), then "VDTM", version 1, any flags, length 60.
-${TELEMETRY_FRAME}  ffffffffffff020000564402080045000058____0000ff11____c0a80a02c0a80aff____15e00044____5644544d01__3c00
+# Broadcast from Node B (02:00:00:56:44:02) to port 5600: Ethernet, IPv4 (UDP, 108 bytes,
+# 192.168.10.2 -> 192.168.10.255) and UDP (88 bytes), then "VDTM", version 2, any flags, length 80.
+${TELEMETRY_FRAME}  ffffffffffff02000056440208004500006c____0000ff11____c0a80a02c0a80aff____15e00058____5644544d02__5000
 
 
 *** Keywords ***
@@ -95,8 +95,9 @@ Should Carry Node A Imu Data To The Ground Station
 Should Flag Fresh Node A Data
     Create System
     Wait For Node B    heartbeat 1
-    # Flags (frame offset 47): Node A data fresh, IMU valid, recorder OK.
-    Wait For Frame    5644544d0107    42
+    # Flags (frame offset 47): Node A data fresh, IMU valid, recorder OK. No GPS here,
+    # and the magnetometer model reads zero, so GPS fix and magnetometer OK are clear.
+    Wait For Frame    5644544d0207    42
 
 Should Change The Telemetry Rate On Command
     Create System

@@ -11,22 +11,32 @@ from ground_station.telemetry import (
 
 # Reference packet from docs/telemetry.md; the firmware encoder is tested against it too.
 REFERENCE = bytes.fromhex(
-    "5644544d01073c000700000040e20100c0d40100010003000cfefa00e7031a04"
-    "fcd600001f018dff35fe0000e80300000100000002000000bc7cc438"
+    "5644544d023f50000700000040e20100c0d40100010003000cfefa00e7031a04"
+    "fcd600001f018dff35fe0901e803000001000000020000009246c8172ef88c13"
+    "22247c1708023c0096000000c88e7318"
 )
 
 
 def test_decodes_reference_packet() -> None:
     t = decode(REFERENCE)
     assert t.seq == 7
-    assert t.node_a_fresh and t.imu_valid and t.recorder_ok
+    assert t.node_a_fresh and t.imu_valid and t.recorder_ok and t.gps_fix and t.mag_ok
+    assert t.heading_source == "magnetometer"
     assert t.node_b_uptime_ms == 123456
     assert t.node_a_uptime_ms == 120000
     assert (t.node_a_resets, t.node_b_resets, t.node_a_age_ms) == (1, 0, 3)
     assert t.accel_mg == (-500, 250, 999)
     assert t.gyro_mdps == (10500, -105000, 0)
     assert t.mag_mgauss == (287, -115, -459)
+    assert (t.gps_satellites, t.gps_quality) == (9, 1)
     assert (t.can_valid, t.can_rejected, t.can_lost) == (1000, 1, 2)
+    assert t.lat_deg == pytest.approx(39.9001234)
+    assert t.lon_deg == pytest.approx(32.8005678)
+    assert t.alt_msl_m == pytest.approx(925.0)
+    assert t.heading_deg == pytest.approx(60.12)
+    assert t.field_mgauss == 520
+    assert t.speed_mps == pytest.approx(6.0)
+    assert t.gps_age_ms == 150
 
 
 @pytest.mark.parametrize("index", range(PACKET_LEN))

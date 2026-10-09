@@ -73,8 +73,8 @@ sequence number for each new command.
 
 ## Timing and limits
 
-- Reception is interrupt-driven into a 128-byte buffer, so a burst of up to
-  128 bytes (about 1.5 full-length commands) is accepted while the main loop is busy.
+- Reception is interrupt-driven into a 256-byte buffer, so a burst of up to
+  256 bytes (three full-length commands) is accepted while the main loop is busy.
   Lost bytes are counted and reported on the debug console.
 - Responses are sent from the main loop with a polled transmitter; a
   full-length response takes about 8 ms at 115200 baud.

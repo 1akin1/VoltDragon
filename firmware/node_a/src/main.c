@@ -3,10 +3,11 @@
  * @brief Node A - sensor acquisition and flight control.
  *
  * Bare-metal super-loop: boots, reports the reset history, samples the IMU at
- * 100 Hz, sends sensor and status messages to Node B over CAN at 50 Hz,
- * records flight data to SPI flash at 10 Hz, kicks the watchdog and prints a
- * heartbeat with IMU, CAN and recorder reports once per second. FreeRTOS tasks
- * replace the loop in Phase 4.
+ * 100 Hz, reads the GPS receiver, computes the heading and checks the
+ * magnetometer for disturbance, sends sensor, position and status messages to
+ * Node B over CAN at 50 Hz, records flight data to SPI flash at 10 Hz, kicks
+ * the watchdog and prints a heartbeat with reports once per second. FreeRTOS
+ * tasks replace the loop in Phase 4.
  *
  * Node-specific debug keys:
  *   d  dump the last flight-log records
@@ -18,9 +19,11 @@
 
 #include "can_tx.h"
 #include "flashlog.h"
+#include "gps.h"
 #include "imu.h"
 #include "iwdg.h"
 #include "log.h"
+#include "nav.h"
 #include "node_boot.h"
 #include "reset_info.h"
 #include "systick.h"
@@ -76,6 +79,8 @@ int main(void)
 {
     node_boot("Node A", NODE_A_WATCHDOG_MS, BOARD_CONSOLE_PA2_PA3);
     (void)imu_init();
+    gps_init();
+    nav_init();
     if (flashlog_init())
     {
         record_boot();
@@ -94,6 +99,8 @@ int main(void)
 
         const uint32_t now_ms = systick_now_ms();
         imu_poll(now_ms);
+        gps_poll(now_ms);
+        nav_poll(now_ms);
         can_tx_poll(now_ms);
         flashlog_poll();
 
@@ -109,6 +116,8 @@ int main(void)
             heartbeat_count++;
             LOG_INFO("heartbeat %lu", heartbeat_count);
             imu_report();
+            gps_report(now_ms);
+            nav_report();
             can_tx_report();
             flashlog_report();
         }

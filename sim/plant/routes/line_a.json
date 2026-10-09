@@ -1,0 +1,11 @@
+{
+  "name": "line_a",
+  "pylons": [[0.0, 0.0], [260.0, 150.0], [520.0, 300.0], [800.0, 380.0], [1080.0, 460.0], [1340.0, 610.0]],
+  "conductor_height_m": 25.0,
+  "phase_spacing_m": 6.0,
+  "current_a": 400.0,
+  "frequency_hz": 50.0,
+  "origin_lat_deg": 39.9,
+  "origin_lon_deg": 32.8,
+  "origin_alt_m": 900.0
+}

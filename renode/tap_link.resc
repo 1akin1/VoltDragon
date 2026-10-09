@@ -1,0 +1,12 @@
+:name: Ground station TAP link
+:description: Bridges Node B's Ethernet to a TAP interface (tap0) on the host. Include after system.resc.
+:
+: Linux only; Renode needs permission to create the TAP device (run it as root).
+: Then on the host:  ip addr add 192.168.10.1/24 dev tap0 && ip link set tap0 up
+
+emulation CreateSwitch "groundLink"
+mach set "node_b"
+connector Connect sysbus.ethernet groundLink
+emulation CreateTap "tap0" "tap"
+connector Connect host.tap groundLink
+mach clear

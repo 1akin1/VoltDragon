@@ -9,7 +9,7 @@
 #include "crc32.h"
 
 #define GYRO_DIVISOR    (10)
-#define CRC_OFFSET      (56U)
+#define CRC_OFFSET      (76U)
 #define AXES            (3U)
 
 static const uint8_t MAGIC[4] = { 'V', 'D', 'T', 'M' };
@@ -80,10 +80,19 @@ size_t tlm_encode(const tlm_packet_t *packet, uint8_t *out, size_t size)
     put_vec3(&out[24], packet->accel_mg, 1);
     put_vec3(&out[30], packet->gyro_mdps, GYRO_DIVISOR);
     put_vec3(&out[36], packet->mag_mgauss, 1);
-    /* Bytes 42..43 are reserved and stay zero. */
+    out[42] = packet->gps_satellites;
+    out[43] = packet->gps_quality;
     put_u32(&out[44], packet->can_valid);
     put_u32(&out[48], packet->can_rejected);
     put_u32(&out[52], packet->can_lost);
+    put_u32(&out[56], (uint32_t)packet->lat_e7);
+    put_u32(&out[60], (uint32_t)packet->lon_e7);
+    put_u16(&out[64], (uint16_t)packet->alt_msl_dm);
+    put_u16(&out[66], packet->heading_cdeg);
+    put_u16(&out[68], packet->field_mgauss);
+    put_u16(&out[70], packet->speed_dmps);
+    put_u16(&out[72], packet->gps_age_ms);
+    /* Bytes 74..75 are reserved and stay zero. */
     put_u32(&out[CRC_OFFSET], crc32(out, CRC_OFFSET));
     return TLM_PACKET_LEN;
 }
@@ -107,8 +116,17 @@ bool tlm_decode(const uint8_t *in, size_t len, tlm_packet_t *packet)
     get_vec3(&in[24], packet->accel_mg, 1);
     get_vec3(&in[30], packet->gyro_mdps, GYRO_DIVISOR);
     get_vec3(&in[36], packet->mag_mgauss, 1);
+    packet->gps_satellites = in[42];
+    packet->gps_quality = in[43];
     packet->can_valid = get_u32(&in[44]);
     packet->can_rejected = get_u32(&in[48]);
     packet->can_lost = get_u32(&in[52]);
+    packet->lat_e7 = (int32_t)get_u32(&in[56]);
+    packet->lon_e7 = (int32_t)get_u32(&in[60]);
+    packet->alt_msl_dm = (int16_t)(uint16_t)get_u16(&in[64]);
+    packet->heading_cdeg = (uint16_t)get_u16(&in[66]);
+    packet->field_mgauss = (uint16_t)get_u16(&in[68]);
+    packet->speed_dmps = (uint16_t)get_u16(&in[70]);
+    packet->gps_age_ms = (uint16_t)get_u16(&in[72]);
     return true;
 }

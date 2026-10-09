@@ -40,6 +40,9 @@
 #define BOARD_COMMAND_UART  (USART3)
 #define BOARD_COMMAND_IRQN  (USART3_IRQN)
 #define BOARD_COMMAND_BAUD  (115200UL)
+#define BOARD_GPS_UART      (UART4)
+#define BOARD_GPS_IRQN      (UART4_IRQN)
+#define BOARD_GPS_BAUD      (9600UL)
 #define BOARD_SENSOR_I2C    (I2C1)
 #define BOARD_SENSOR_I2C_HZ (100000UL)
 #define BOARD_CAN           (CAN1)
@@ -63,6 +66,9 @@ void board_init(board_console_pins_t console_pins);
 
 /** Enables the clock and configures the pins of the operator command UART. */
 void board_command_uart_init(void);
+
+/** Enables the clock and configures the pins of Node A's GPS receiver UART (UART4, PC10/PC11). */
+void board_gps_uart_init(void);
 
 /** Enables the clock and configures the pins of the inter-node CAN bus. */
 void board_can_init(void);

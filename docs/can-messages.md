@@ -15,7 +15,7 @@ Implementation: [`can.c`](../firmware/common/src/can.c) (bxCAN driver),
 | Bit rate | 500 kbit/s: prescaler 2 on the 16 MHz APB1 clock, 1 + 13 + 2 = 16 time quanta, sample point 87.5 % |
 | Frames | Classic CAN, 11-bit identifiers, data frames only, always 8 data bytes |
 | Error handling | Automatic retransmission; automatic bus-off recovery (ABOM) |
-| Load | 200 frames/s at about 130 bits each: about 5 % of the bus |
+| Load | 350 frames/s at about 130 bits each: about 9 % of the bus |
 
 ## Frame layout
 
@@ -36,10 +36,11 @@ scheme of AUTOSAR E2E Profile 1.
 
 ## Messages from Node A
 
-Node A sends one frame every 5 ms in a fixed rotation, so each message repeats
-every 20 ms (50 Hz) and the bus never carries a burst. A burst of four frames
-would overflow the receiver's three-deep hardware FIFO, which the first
-version of this design did.
+Node A uses a fixed schedule of ten 2 ms slots: STATUS, ACCEL, GYRO, MAG,
+GPS_LAT, GPS_LON, NAV and three idle slots. Each message therefore repeats
+every 20 ms (50 Hz), and the bus never carries a burst: a burst of frames would
+overflow the receiver's three-deep hardware FIFO, which the first version of
+this design did.
 
 | ID | Name | Payload (little-endian) | Sent |
 |----|------|-------------------------|------|
@@ -47,10 +48,14 @@ version of this design did.
 | 0x101 | ACCEL | X, Y, Z as int16, mg | While the IMU sample is valid |
 | 0x102 | GYRO | X, Y, Z as int16, units of 10 mdps (0.01 dps) | While the IMU sample is valid |
 | 0x103 | MAG | X, Y, Z as int16, mgauss | While the IMU sample is valid |
+| 0x104 | GPS_LAT | bytes 0..3: latitude, int32, degrees x 1e7; byte 4: GGA fix quality; byte 5: satellites | While the GPS fix is fresh (under 1 s) |
+| 0x105 | GPS_LON | bytes 0..3: longitude, int32, degrees x 1e7; bytes 4..5: altitude above mean sea level, int16, 0.1 m | While the GPS fix is fresh |
+| 0x106 | NAV | bytes 0..1: true heading, uint16, 0.01 deg; bytes 2..3: measured field strength, uint16, mgauss; byte 4: flags (bit 0 magnetometer OK, bit 1 GPS fix, bits 2-3 heading source: 0 none, 1 magnetometer, 2 GPS course); byte 5: ground speed, 0.1 m/s (saturates at 25.5 m/s) | Always |
 
-Values outside the int16 range saturate. Without a valid IMU sample, only
-STATUS is sent; the receiver sees the IMU flag cleared and the IMU data age
-growing.
+Values outside their range saturate. Without a valid IMU sample the IMU
+messages are not sent, and without a fresh GPS fix the position messages are
+not sent; the receiver sees the flags cleared and the data age growing. With no
+IMU and no GPS, only STATUS and NAV flow (100 frames/s).
 
 ## Reception on Node B
 

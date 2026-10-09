@@ -13,6 +13,7 @@ add_library(voltdragon_common OBJECT
     src/i2c.c
     src/iwdg.c
     src/log.c
+    src/nmea.c
     src/node_boot.c
     src/reset_info.c
     src/spi.c

@@ -93,6 +93,72 @@ void canmsg_decode_status(const uint8_t *payload, canmsg_status_t *status)
                         ((uint32_t)payload[4] << 16) | ((uint32_t)payload[5] << 24);
 }
 
+static void put_u32(uint8_t *p, uint32_t v)
+{
+    p[0] = (uint8_t)v;
+    p[1] = (uint8_t)(v >> 8);
+    p[2] = (uint8_t)(v >> 16);
+    p[3] = (uint8_t)(v >> 24);
+}
+
+static uint32_t get_u32(const uint8_t *p)
+{
+    return (uint32_t)p[0] | ((uint32_t)p[1] << 8) | ((uint32_t)p[2] << 16) |
+           ((uint32_t)p[3] << 24);
+}
+
+static uint32_t get_u16(const uint8_t *p)
+{
+    return (uint32_t)p[0] | ((uint32_t)p[1] << 8);
+}
+
+void canmsg_encode_gps_lat(uint8_t *payload, const canmsg_gps_t *gps)
+{
+    put_u32(payload, (uint32_t)gps->lat_e7);
+    payload[4] = gps->quality;
+    payload[5] = gps->satellites;
+}
+
+void canmsg_encode_gps_lon(uint8_t *payload, const canmsg_gps_t *gps)
+{
+    const uint16_t alt = (uint16_t)gps->alt_msl_dm;
+
+    put_u32(payload, (uint32_t)gps->lon_e7);
+    payload[4] = (uint8_t)alt;
+    payload[5] = (uint8_t)(alt >> 8);
+}
+
+void canmsg_decode_gps_lat(const uint8_t *payload, canmsg_gps_t *gps)
+{
+    gps->lat_e7 = (int32_t)get_u32(payload);
+    gps->quality = payload[4];
+    gps->satellites = payload[5];
+}
+
+void canmsg_decode_gps_lon(const uint8_t *payload, canmsg_gps_t *gps)
+{
+    gps->lon_e7 = (int32_t)get_u32(payload);
+    gps->alt_msl_dm = (int16_t)(uint16_t)get_u16(&payload[4]);
+}
+
+void canmsg_encode_nav(uint8_t *payload, const canmsg_nav_t *nav)
+{
+    payload[0] = (uint8_t)nav->heading_cdeg;
+    payload[1] = (uint8_t)(nav->heading_cdeg >> 8);
+    payload[2] = (uint8_t)nav->field_mgauss;
+    payload[3] = (uint8_t)(nav->field_mgauss >> 8);
+    payload[4] = nav->flags;
+    payload[5] = nav->speed_dmps;
+}
+
+void canmsg_decode_nav(const uint8_t *payload, canmsg_nav_t *nav)
+{
+    nav->heading_cdeg = (uint16_t)get_u16(payload);
+    nav->field_mgauss = (uint16_t)get_u16(&payload[2]);
+    nav->flags = payload[4];
+    nav->speed_dmps = payload[5];
+}
+
 uint32_t canmsg_track_seq(canmsg_seq_tracker_t *tracker, uint8_t seq)
 {
     uint32_t lost = 0U;

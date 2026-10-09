@@ -26,11 +26,15 @@ Total duration: about **6 weeks**, in 7 phases. Each phase ends with a milestone
 ✅ Verified by `tests/robot/system_telemetry.robot` and with the Python receiver over a TAP link ([telemetry.md](telemetry.md)).
 
 ## Phase 3 - Plant model and mission scenario (week 3)
-- [ ] Python flight model: progress along the line, wind, sensor noise
-- [ ] Add a magnetometer-corruption scenario near the line
-- [ ] Add a map and telemetry plots to the ground station
+- [x] Python flight model: progress along the line, wind, sensor noise ([simulation.md](simulation.md))
+- [x] Add a magnetometer-corruption scenario near the line, and its detection on Node A (HLR-008)
+- [x] Add a map and telemetry plots to the ground station, with alarms
+- [x] Added beyond the original plan: a simulated GPS receiver (NMEA on UART4), so the
+      position on the map comes from the vehicle's own telemetry rather than from the simulator
 
 **Milestone:** The UAV flies along the simulated line and can be monitored from the ground station.
+✅ Verified by `tests/integration/test_mission.py` (plant model driving both nodes in Renode)
+and with the ground-station display over a TAP link ([simulation.md](simulation.md)).
 
 ## Phase 4 - RTOS and safety logic (week 4)
 - [ ] Move to FreeRTOS: `ImuTask`, `ControlTask`, `CanTxTask`, `AiTask`, `LogTask`

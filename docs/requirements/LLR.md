@@ -1,6 +1,6 @@
 # Low-Level Requirements (LLR)
 
-Status: **Draft v0.3** · Phase 2
+Status: **Draft v0.4** · Phase 3
 
 Low-level requirements refine the [high-level requirements](HLR.md) into
 statements that can be implemented and tested directly. The full
@@ -75,7 +75,7 @@ Protocol details: [command-interface.md](../command-interface.md).
 
 | ID | Requirement | Parent | Code | Test |
 |----|-------------|--------|------|------|
-| LLR-060 | Node B shall receive operator commands on USART3 (PB10/PB11, 115200 baud, 8N1) through an interrupt-driven 128-byte buffer, and shall count bytes lost to UART overruns or a full buffer. | HLR-014 | `board.c`, `uart.c`, `commands.c` | `Should Answer Back To Back Commands In Order` |
+| LLR-060 | Node B shall receive operator commands on USART3 (PB10/PB11, 115200 baud, 8N1) through an interrupt-driven 256-byte buffer, and shall count bytes lost to UART overruns or a full buffer. | HLR-014 | `board.c`, `uart.c`, `commands.c` | `Should Answer Back To Back Commands In Order` |
 | LLR-061 | A frame shall start at `$` (any `$` restarts assembly) and end at CR or LF. Empty lines shall be ignored. Lines over 80 characters shall be rejected with `LENGTH`. | HLR-014 | `cmd_protocol.c` | Unit: `line_*`; Robot: `Should Resynchronise After Line Noise`, `Should Reject Corrupted Frames` |
 | LLR-062 | A frame shall be rejected with `FRAME`, `CHECKSUM` or `SEQ`, and sequence number 0, if it is malformed, its XOR checksum does not match, or its sequence number is not in 1..65535. | HLR-013, HLR-014 | `cmd_protocol.c`, `cmd_dispatch.c` | Unit: `parse_rejects_*`; Robot: `Should Reject Corrupted Frames` |
 | LLR-063 | A valid frame with an unknown verb shall be rejected with `UNKNOWN`; a wrong argument count or an argument value refused by the command shall be rejected with `ARGS`. Rejected commands shall have no effect. | HLR-014 | `cmd_dispatch.c`, `commands.c` | Unit: `rejects_*`; Robot: `Should Reject Unknown Commands`, `Should Reject Invalid Arguments` |
@@ -92,7 +92,7 @@ Message layout: [can-messages.md](../can-messages.md).
 |----|-------------|--------|------|------|
 | LLR-070 | Both nodes shall use CAN1 (PB8/PB9) at 500 kbit/s with 11-bit identifiers, automatic retransmission and automatic bus-off recovery. Controller mode changes shall be bounded waits. | HLR-011 | `board.c`, `can.c` | All `system_can.robot` tests |
 | LLR-071 | Every message shall be 8 bytes: 6 payload bytes, a per-identifier sequence counter and a CRC-8/SAE-J1850 over the identifier and the first 7 bytes. | HLR-013 | `can_msg.c`, `crc8.c` | Unit: `test_can_msg`; Robot: `Should Reject A Corrupted Frame` |
-| LLR-072 | Node A shall send STATUS, ACCEL, GYRO and MAG at 50 Hz each, one frame every 5 ms in a fixed rotation. The IMU messages shall be sent only while the IMU sample is valid. | HLR-011 | `can_tx.c` | `Should Deliver Node A Data To Node B At 50 Hz`, `Should Flag Missing Imu Data From Node A` |
+| LLR-072 | Node A shall send STATUS, ACCEL, GYRO, MAG, GPS_LAT, GPS_LON and NAV at 50 Hz each, in a fixed schedule of ten 2 ms slots. The IMU messages shall be sent only while the IMU sample is valid, and the position messages only while the GPS fix is fresh. | HLR-011 | `can_tx.c` | `Should Deliver Node A Data To Node B At 50 Hz`, `Should Flag Missing Imu Data From Node A`; integration: `test_can_and_telemetry_run_without_losses` (350 frames/s) |
 | LLR-073 | Node B shall accept only identifiers 0x100..0x10F, using the hardware acceptance filter. | HLR-013 | `can.c`, `can_rx.c` | `Should Filter Out Foreign Identifiers In Hardware` |
 | LLR-074 | Node B shall reject and count frames with a wrong length or CRC, and shall not use their content. | HLR-010, HLR-013 | `can_rx.c` | `Should Reject A Corrupted Frame` |
 | LLR-075 | Node B shall count gaps of 1..127 in each identifier's sequence counter as lost frames, and shall resynchronise without counting on larger or backward jumps and when STATUS shows that Node A restarted. | HLR-013 | `can_msg.c`, `can_rx.c` | Unit: `sequence_tracker_*`; Robot: `Should Count A Lost Frame`, `Should Resynchronise When Node A Restarts` |
@@ -108,6 +108,28 @@ Packet layout and network settings: [telemetry.md](../telemetry.md).
 | LLR-080 | Node B shall use the Ethernet MAC over RMII with an 802.3 PHY at MDIO address 0. Every MDIO and DMA reset wait shall be bounded, and a missing PHY shall be logged with the node continuing without network. | HLR-012 | `board.c`, `eth.c`, `net.c` | `Should Keep Running Without Ethernet` |
 | LLR-081 | Node B shall bring up the link from the main loop by polling the PHY every 100 ms, and shall configure the MAC for the speed and duplex common to both link partners. | HLR-012 | `eth.c`, `net.c` | All `system_telemetry.robot` tests (100 Mbit/s full duplex) |
 | LLR-082 | Node B shall run lwIP without an operating system (IPv4, ARP, ICMP, UDP) with the static address 192.168.10.2/24. | HLR-012 | `net.c`, `lwipopts.h` | `Should Answer Commands Over Udp` |
-| LLR-083 | Node B shall broadcast a 60-byte telemetry packet to UDP port 5600 at the rate set by `TLM_RATE` (10 Hz default), carrying Node A's latest data, its age and freshness, both nodes' uptime and reset counts and the CAN link counters. | HLR-012 | `telemetry.c`, `tlm_msg.c` | `Should Broadcast Telemetry At 10 Hz`, `Should Carry Node A Imu Data To The Ground Station`, `Should Flag Fresh Node A Data`, `Should Change The Telemetry Rate On Command` |
+| LLR-083 | Node B shall broadcast an 80-byte telemetry packet to UDP port 5600 at the rate set by `TLM_RATE` (10 Hz default), carrying Node A's latest sensor data, position, heading and its source, field strength, data ages and freshness, both nodes' uptime and reset counts and the CAN link counters. | HLR-012 | `telemetry.c`, `tlm_msg.c` | `Should Broadcast Telemetry At 10 Hz`, `Should Carry Node A Imu Data To The Ground Station`, `Should Flag Fresh Node A Data`, `Should Change The Telemetry Rate On Command` |
 | LLR-084 | Every telemetry packet shall carry a magic number, a version, a sequence number that advances per packet sent, and a CRC-32 over the rest of the packet. | HLR-013 | `tlm_msg.c` | Unit: `test_tlm_msg`; pytest: `test_telemetry.py` (same reference packet) |
 | LLR-085 | Node B shall accept operator commands on UDP port 5601, one frame per datagram, process them like UART commands with a separate retransmission cache, and send each reply to the sender. | HLR-014 | `net.c`, `commands.c` | `Should Answer Commands Over Udp`, `Should Reject A Corrupted Udp Command` |
+
+## GPS and navigation (Node A)
+
+Design: [simulation.md](../simulation.md) describes the scenario these are verified in.
+
+| ID | Requirement | Parent | Code | Test |
+|----|-------------|--------|------|------|
+| LLR-090 | Node A shall receive NMEA 0183 from a GPS receiver on UART4 (PC10/PC11, 9600 baud) through an interrupt-driven buffer, and shall parse GGA and RMC sentences with any talker ID, in integer fixed point. | HLR-010 | `gps.c`, `nmea.c` | Unit: `test_nmea`; Robot: `Should Parse A Gps Fix`; integration: `test_gps_runs_at_5_fixes_per_second` |
+| LLR-091 | A sentence with a framing, checksum or field error shall be counted and shall leave the previous fix unchanged. | HLR-010 | `nmea.c`, `gps.c` | Unit: `rejects_bad_sentences_without_changing_the_fix`; Robot: `Should Count A Corrupted Gps Sentence` |
+| LLR-092 | A GPS fix older than 1 s shall be treated as lost. | HLR-010 | `gps.c` | Robot: `Should Report No Fix Without A Gps` |
+| LLR-093 | Node A shall estimate the gravity direction with a complementary filter: gyroscope propagation every sample, and a correction towards the accelerometer with a 2 s time constant only while the accelerometer reads within 3 % of 1 g. | HLR-008 | `nav.c` | Integration: `test_magnetometer_is_flagged_only_near_the_line` (no false alarm while accelerating) |
+| LLR-094 | Node A shall compute the true heading from the tilt-compensated magnetometer and the local declination (5 degrees east). | HLR-008 | `nav.c` | Robot: `Should Compute The Magnetometer Heading`; integration: `test_magnetometer_heading_matches_truth_in_cruise` |
+| LLR-095 | Node A shall treat a magnetometer sample as disturbed if its field strength differs from 500 mG by more than 15 %, or its dip angle from 56 degrees by more than 8 degrees. The magnetometer shall be declared disturbed after 5 consecutive disturbed samples and usable again after 100 consecutive good ones. | HLR-008 | `nav.c` | Robot: `Should Stop Using A Disturbed Magnetometer And Recover`; integration: `test_magnetometer_is_flagged_only_near_the_line` |
+| LLR-096 | While the magnetometer is disturbed, Node A shall not use its heading; it shall use the GPS course over ground when the ground speed is at least 1 m/s, and otherwise report no heading. | HLR-008 | `nav.c` | Robot: `Should Fall Back To The Gps Course`; integration: `test_heading_falls_back_to_gps_course_while_disturbed` |
+
+## Ground station
+
+| ID | Requirement | Parent | Code | Test |
+|----|-------------|--------|------|------|
+| LLR-100 | The ground station shall decode version 2 telemetry, reject packets with a wrong length, magic, version or CRC, and count lost packets from the sequence number. | HLR-013, HLR-019 | `ground_station/telemetry.py` | pytest: `test_telemetry.py` |
+| LLR-101 | The ground station shall show the route, the vehicle's track and position, the distance to the nearest conductor, the measured field strength and the heading with its source. | HLR-019 | `ground_station/display.py`, `state.py` | pytest: `test_display_renders_a_replay`; inspection of a mission snapshot |
+| LLR-102 | The ground station shall raise alarms for: no telemetry for 1 s; distance to a conductor below 12 m (warning) and 10 m (critical), from the GPS position and the route geometry; stale Node A data; no GPS fix; IMU invalid; magnetometer disturbed; recorder off; packet loss and CAN errors in the last 5 s. Critical alarms shall be listed first. | HLR-001, HLR-002, HLR-019 | `ground_station/state.py` | pytest: `test_ground_station.py` |

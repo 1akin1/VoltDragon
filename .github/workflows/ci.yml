@@ -86,11 +86,18 @@ jobs:
       - name: Run Robot Framework tests
         run: renode-test -r build/robot tests/robot/*.robot
 
+      - name: Run the co-simulated mission (plant model + both nodes, about 3.5 minutes)
+        run: |
+          pip install pytest
+          python -m pytest tests/integration --basetemp build/mission-test
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: robot-results
-          path: build/robot
+          path: |
+            build/robot
+            build/mission-test
 
   python:
     name: Python lint and tests

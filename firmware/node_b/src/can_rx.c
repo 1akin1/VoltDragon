@@ -10,7 +10,7 @@
 #include "log.h"
 
 #define NODE_A_FILTER_BANK  (0U)
-#define NODE_A_MESSAGES     (4U)
+#define NODE_A_MESSAGES     (7U)
 
 typedef struct
 {
@@ -37,6 +37,12 @@ static uint32_t message_index(uint16_t id)
             return 2U;
         case CANMSG_ID_A_MAG:
             return 3U;
+        case CANMSG_ID_A_GPS_LAT:
+            return 4U;
+        case CANMSG_ID_A_GPS_LON:
+            return 5U;
+        case CANMSG_ID_A_NAV:
+            return 6U;
         default:
             return NODE_A_MESSAGES;
     }
@@ -58,7 +64,7 @@ static void check_restart(const can_frame_t *frame)
     s_rx.have_status = true;
 }
 
-static void store(const can_frame_t *frame)
+static void store(const can_frame_t *frame, uint32_t now_ms)
 {
     switch (frame->id)
     {
@@ -71,8 +77,20 @@ static void store(const can_frame_t *frame)
         case CANMSG_ID_A_GYRO:
             canmsg_decode_vec3(frame->data, s_rx.node_a.gyro_mdps, CANMSG_GYRO_DIVISOR);
             break;
-        default:
+        case CANMSG_ID_A_MAG:
             canmsg_decode_vec3(frame->data, s_rx.node_a.mag_mgauss, 1);
+            break;
+        case CANMSG_ID_A_GPS_LAT:
+            canmsg_decode_gps_lat(frame->data, &s_rx.node_a.gps);
+            break;
+        case CANMSG_ID_A_GPS_LON:
+            /* GPS_LON follows GPS_LAT in the schedule, so it completes a position. */
+            canmsg_decode_gps_lon(frame->data, &s_rx.node_a.gps);
+            s_rx.node_a.gps_ms = now_ms;
+            s_rx.node_a.any_gps = true;
+            break;
+        default:
+            canmsg_decode_nav(frame->data, &s_rx.node_a.nav);
             break;
     }
 }
@@ -123,7 +141,7 @@ void can_rx_poll(uint32_t now_ms)
             }
             s_rx.stats.lost += canmsg_track_seq(&s_rx.seq[index], canmsg_seq(&frame));
             s_rx.stats.valid++;
-            store(&frame);
+            store(&frame, now_ms);
             s_rx.node_a.last_valid_ms = now_ms;
             s_rx.node_a.any_valid = true;
         }
@@ -171,4 +189,13 @@ void can_rx_report(uint32_t now_ms)
              a->accel_mg[0], a->accel_mg[1], a->accel_mg[2],
              a->gyro_mdps[0], a->gyro_mdps[1], a->gyro_mdps[2],
              a->mag_mgauss[0], a->mag_mgauss[1], a->mag_mgauss[2]);
+
+    static const char *const sources[] = { "none", "magnetometer", "GPS course", "?" };
+    const uint32_t source = ((uint32_t)a->nav.flags & CANMSG_NAV_SOURCE_MASK) >>
+                            CANMSG_NAV_SOURCE_SHIFT;
+    LOG_INFO("can: A heading %u cdeg from %s, field %u mG, magnetometer %s, gps %s",
+             (unsigned int)a->nav.heading_cdeg, sources[source],
+             (unsigned int)a->nav.field_mgauss,
+             ((a->nav.flags & CANMSG_NAV_MAG_OK) != 0U) ? "ok" : "DISTURBED",
+             ((a->nav.flags & CANMSG_NAV_GPS_FIX) != 0U) ? "fix" : "no fix");
 }

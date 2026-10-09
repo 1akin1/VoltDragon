@@ -26,6 +26,9 @@
 #define CANMSG_ID_A_ACCEL       (0x101U)
 #define CANMSG_ID_A_GYRO        (0x102U)
 #define CANMSG_ID_A_MAG         (0x103U)
+#define CANMSG_ID_A_GPS_LAT     (0x104U)
+#define CANMSG_ID_A_GPS_LON     (0x105U)
+#define CANMSG_ID_A_NAV         (0x106U)
 #define CANMSG_NODE_A_ID_BASE   (0x100U)
 #define CANMSG_NODE_A_ID_MASK   (0x7F0U)
 
@@ -41,12 +44,36 @@
 #define CANMSG_STATUS_IMU_VALID     (0x01U)
 #define CANMSG_STATUS_RECORDER_OK   (0x02U)
 
+/* NAV flags. */
+#define CANMSG_NAV_MAG_OK           (0x01U)     /**< Magnetometer field within limits. */
+#define CANMSG_NAV_GPS_FIX          (0x02U)     /**< Fresh GPS position fix. */
+#define CANMSG_NAV_SOURCE_SHIFT     (2U)        /**< Heading source: 0 none, 1 magnetometer, 2 GPS. */
+#define CANMSG_NAV_SOURCE_MASK      (0x0CU)
+
 typedef struct
 {
     uint8_t  flags;
     uint8_t  reset_count;       /**< Saturates at 255. */
     uint32_t uptime_ms;
 } canmsg_status_t;
+
+/** GPS position, carried by GPS_LAT and GPS_LON. */
+typedef struct
+{
+    int32_t lat_e7;             /**< Degrees x 1e7. */
+    int32_t lon_e7;             /**< Degrees x 1e7. */
+    int16_t alt_msl_dm;         /**< Altitude above mean sea level, 0.1 m; saturates. */
+    uint8_t quality;            /**< NMEA GGA fix quality. */
+    uint8_t satellites;
+} canmsg_gps_t;
+
+typedef struct
+{
+    uint16_t heading_cdeg;      /**< True heading, 0.01 deg. */
+    uint16_t field_mgauss;      /**< Measured magnetic field strength. */
+    uint8_t  flags;             /**< CANMSG_NAV_* */
+    uint8_t  speed_dmps;        /**< GPS ground speed, 0.1 m/s; saturates at 25.5 m/s. */
+} canmsg_nav_t;
 
 typedef struct
 {
@@ -71,6 +98,19 @@ void canmsg_decode_vec3(const uint8_t *payload, int32_t *values, int32_t multipl
 
 void canmsg_encode_status(uint8_t *payload, const canmsg_status_t *status);
 void canmsg_decode_status(const uint8_t *payload, canmsg_status_t *status);
+
+/** GPS_LAT payload: latitude (int32), fix quality, satellites. */
+void canmsg_encode_gps_lat(uint8_t *payload, const canmsg_gps_t *gps);
+/** GPS_LON payload: longitude (int32), altitude (int16 dm). */
+void canmsg_encode_gps_lon(uint8_t *payload, const canmsg_gps_t *gps);
+/** Updates the fields of @p gps carried by a GPS_LAT payload. */
+void canmsg_decode_gps_lat(const uint8_t *payload, canmsg_gps_t *gps);
+/** Updates the fields of @p gps carried by a GPS_LON payload. */
+void canmsg_decode_gps_lon(const uint8_t *payload, canmsg_gps_t *gps);
+
+/** NAV payload: heading (uint16), field (uint16), flags, speed. */
+void canmsg_encode_nav(uint8_t *payload, const canmsg_nav_t *nav);
+void canmsg_decode_nav(const uint8_t *payload, canmsg_nav_t *nav);
 
 /**
  * Updates the tracker with a received sequence counter and returns how many

@@ -18,6 +18,7 @@ typedef struct
     bool valid;
     uint32_t next_due_ms;
     uint32_t samples_since_report;
+    uint32_t sample_count;
     uint32_t errors_since_report;
     i2c_status_t last_error;
     lsm9ds1_sample_t latest;
@@ -72,6 +73,7 @@ void imu_poll(uint32_t now_ms)
         s_imu.latest = sample;
         s_imu.valid = true;
         s_imu.samples_since_report++;
+        s_imu.sample_count++;
     }
     else
     {
@@ -80,6 +82,11 @@ void imu_poll(uint32_t now_ms)
         s_imu.errors_since_report++;
         s_imu.last_error = bus_status;
     }
+}
+
+uint32_t imu_sample_count(void)
+{
+    return s_imu.sample_count;
 }
 
 bool imu_latest(lsm9ds1_sample_t *out)

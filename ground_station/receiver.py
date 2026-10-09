@@ -24,12 +24,19 @@ from ground_station.telemetry import (
 def format_packet(t: Telemetry) -> str:
     flags = "".join(
         mark if on else "-"
-        for mark, on in (("F", t.node_a_fresh), ("I", t.imu_valid), ("R", t.recorder_ok))
+        for mark, on in (
+            ("F", t.node_a_fresh),
+            ("I", t.imu_valid),
+            ("R", t.recorder_ok),
+            ("G", t.gps_fix),
+            ("M", t.mag_ok),
+        )
     )
     return (
         f"#{t.seq:<6} B {t.node_b_uptime_ms / 1000:8.3f}s  "
         f"A age {t.node_a_age_ms:5} ms  [{flags}]  "
-        f"acc {t.accel_mg} mg  gyro {t.gyro_mdps} mdps  mag {t.mag_mgauss} mG  "
+        f"pos {t.lat_deg:.6f} {t.lon_deg:.6f} {t.alt_msl_m:.1f} m  "
+        f"hdg {t.heading_deg:6.2f} ({t.heading_source})  field {t.field_mgauss} mG  "
         f"can ok/bad/lost {t.can_valid}/{t.can_rejected}/{t.can_lost}"
     )
 

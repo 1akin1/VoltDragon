@@ -25,6 +25,9 @@ add_unit_test(test_can_msg
 add_unit_test(test_tlm_msg
     ${FIRMWARE_COMMON}/src/tlm_msg.c
     ${FIRMWARE_COMMON}/src/crc32.c)
+add_unit_test(test_nmea
+    ${FIRMWARE_COMMON}/src/nmea.c
+    ${FIRMWARE_COMMON}/src/cmd_protocol.c)
 add_unit_test(test_cmd_dispatch
     ${FIRMWARE_COMMON}/src/cmd_dispatch.c
     ${FIRMWARE_COMMON}/src/cmd_protocol.c)

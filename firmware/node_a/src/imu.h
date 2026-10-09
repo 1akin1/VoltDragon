@@ -24,6 +24,9 @@ void imu_poll(uint32_t now_ms);
 /** Copies the latest sample. Returns false if there is no valid sample. */
 bool imu_latest(lsm9ds1_sample_t *out);
 
+/** Number of valid samples taken since start-up; changes whenever a new sample is available. */
+uint32_t imu_sample_count(void);
+
 /** Logs the sample rate since the previous report, the error count and the latest sample. */
 void imu_report(void);
 

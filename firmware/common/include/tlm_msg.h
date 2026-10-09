@@ -2,18 +2,22 @@
  * @file tlm_msg.h
  * @brief Telemetry packet sent by Node B to the ground station over UDP (HLR-012, HLR-013).
  *
- * Fixed 60-byte little-endian packet (see docs/telemetry.md):
+ * Fixed 80-byte little-endian packet, version 2 (see docs/telemetry.md):
  *
- *     0  "VDTM" magic          24  accel X/Y/Z, int16 mg
- *     4  version (1)           30  gyro X/Y/Z, int16 10 mdps
- *     5  flags                 36  mag X/Y/Z, int16 mgauss
- *     6  length (60)           42  reserved (0)
- *     8  sequence number       44  CAN frames valid
- *    12  Node B uptime ms      48  CAN frames rejected
- *    16  Node A uptime ms      52  CAN frames lost
- *    20  Node A reset count    56  CRC-32 of bytes 0..55
- *    21  Node B reset count
- *    22  Node A data age ms
+ *     0  "VDTM" magic          42  GPS satellites
+ *     4  version (2)           43  GPS fix quality
+ *     5  flags                 44  CAN frames valid
+ *     6  length (80)           48  CAN frames rejected
+ *     8  sequence number       52  CAN frames lost
+ *    12  Node B uptime ms      56  latitude, deg x 1e7
+ *    16  Node A uptime ms      60  longitude, deg x 1e7
+ *    20  Node A reset count    64  altitude MSL, dm
+ *    21  Node B reset count    66  heading, 0.01 deg
+ *    22  Node A data age ms    68  magnetic field, mgauss
+ *    24  accel X/Y/Z, mg       70  ground speed, dm/s
+ *    30  gyro X/Y/Z, 10 mdps   72  GPS data age ms
+ *    36  mag X/Y/Z, mgauss     74  reserved (0)
+ *                              76  CRC-32 of bytes 0..75
  *
  * No hardware dependencies; unit-tested on the host (tests/unit).
  */
@@ -24,13 +28,18 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define TLM_PACKET_LEN          (60U)
-#define TLM_VERSION             (1U)
+#define TLM_PACKET_LEN          (80U)
+#define TLM_VERSION             (2U)
 
 #define TLM_FLAG_NODE_A_FRESH   (0x01U)     /**< Node A data younger than TLM_FRESH_MS. */
 #define TLM_FLAG_IMU_VALID      (0x02U)
 #define TLM_FLAG_RECORDER_OK    (0x04U)
+#define TLM_FLAG_GPS_FIX        (0x08U)     /**< Position younger than TLM_GPS_FRESH_MS. */
+#define TLM_FLAG_MAG_OK         (0x10U)     /**< Magnetometer field within limits. */
+#define TLM_HEADING_SOURCE_SHIFT (5U)       /**< 0 none, 1 magnetometer, 2 GPS course. */
+#define TLM_HEADING_SOURCE_MASK (0x60U)
 #define TLM_FRESH_MS            (100UL)
+#define TLM_GPS_FRESH_MS        (1000UL)
 
 typedef struct
 {
@@ -44,9 +53,18 @@ typedef struct
     int32_t  accel_mg[3];
     int32_t  gyro_mdps[3];      /**< Sent in units of 10 mdps. */
     int32_t  mag_mgauss[3];
+    uint8_t  gps_satellites;
+    uint8_t  gps_quality;
     uint32_t can_valid;
     uint32_t can_rejected;
     uint32_t can_lost;
+    int32_t  lat_e7;
+    int32_t  lon_e7;
+    int16_t  alt_msl_dm;
+    uint16_t heading_cdeg;
+    uint16_t field_mgauss;
+    uint16_t speed_dmps;
+    uint16_t gps_age_ms;        /**< Saturates at 65535. */
 } tlm_packet_t;
 
 /** Serialises a packet. Returns TLM_PACKET_LEN, or 0 if @p size is too small. */

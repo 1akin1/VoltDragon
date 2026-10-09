@@ -37,14 +37,16 @@ flowchart TB
 | `firmware/common` | Code shared by both nodes |
 | `cmake/` | Cross-compilation toolchain file |
 | `renode/` | Renode platform and start-up scripts |
-| `sim/plant` | Python plant model |
-| `ground_station/` | Python ground station: telemetry receiver and command tool |
+| `sim/plant` | Python plant model: route, line field, vehicle, wind, IMU and GPS |
+| `sim/` | Co-simulation with Renode and the mission runner |
+| `ground_station/` | Python ground station: map, plots and alarms; receiver and command tools |
 | `third_party/lwip` | lwIP 2.2.1 TCP/IP stack (git submodule) |
 | `tests/robot` | Robot Framework system tests (Renode) |
 | `tests/unit` | Host unit tests for hardware-independent firmware modules (ctest) |
-| `tests/python` | pytest unit tests |
+| `tests/python` | pytest unit tests (plant model, ground station) |
+| `tests/integration` | End-to-end mission: plant model driving both nodes in Renode |
 | `tools/gdb` | GDB helpers (fault-frame decoding) |
-| `docs/` | [Roadmap](docs/roadmap.md), [HLR](docs/requirements/HLR.md), [LLR](docs/requirements/LLR.md), [debugging](docs/debugging.md), [command interface](docs/command-interface.md), [CAN messages](docs/can-messages.md), [telemetry](docs/telemetry.md), [MISRA deviations](docs/misra-deviations.md) |
+| `docs/` | [Roadmap](docs/roadmap.md), [HLR](docs/requirements/HLR.md), [LLR](docs/requirements/LLR.md), [debugging](docs/debugging.md), [command interface](docs/command-interface.md), [CAN messages](docs/can-messages.md), [telemetry](docs/telemetry.md), [simulation](docs/simulation.md), [MISRA deviations](docs/misra-deviations.md) |
 
 ## Building
 
@@ -82,6 +84,15 @@ python -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
 pytest
+
+# Fly the inspection mission: the plant model drives both nodes in Renode (docs/simulation.md)
+python -m sim.mission --duration 90
+python -m pytest tests/integration          # the same mission, checked against ground truth
+
+# ... with the ground-station display on the host (as root: Renode creates a TAP device)
+sudo python -m sim.mission --tap &
+sudo ip addr add 192.168.10.1/24 dev tap0 && sudo ip link set tap0 up
+python -m ground_station.display
 ```
 
 ## Status
@@ -101,6 +112,20 @@ ground station over UDP.
   driver, and accepts checksummed, acknowledged operator commands over UART and
   UDP ([telemetry](docs/telemetry.md), [command interface](docs/command-interface.md)).
 
+Phase 3 complete: the UAV flies along a simulated power line and is monitored from
+the ground station.
+
+- A Python plant model flies a multirotor along the line in gusty wind and drives
+  Node A's IMU and a simulated GPS receiver inside Renode, in lockstep with the
+  firmware ([simulation](docs/simulation.md)).
+- Near the conductors, the line current's magnetic field corrupts the magnetometer.
+  Node A detects this from the field strength and dip angle, stops using the
+  magnetometer heading and falls back to the GPS course (HLR-008).
+- The ground station shows the route, the vehicle's track and position, the
+  distance to the line, the measured field and heading, and alarms.
+
+![Ground station during the inspection mission](docs/images/ground_station.png)
+
 See the [roadmap](docs/roadmap.md).
 
 ## Limitations: to be verified in the hardware phase
@@ -109,7 +134,10 @@ Renode is **not cycle-accurate**, and some peripherals are simplified (for examp
 the RCC reset flags are not modelled; see [debugging.md](docs/debugging.md)). Renode's
 LSM9DS1 model scales its outputs by ideal counts per unit rather than the datasheet
 sensitivities, so the firmware reads the gyroscope 5 % and the magnetometer 14.7 % high
-in simulation (see [node_a_imu.robot](tests/robot/node_a_imu.robot)). Timing figures such as interrupt latency and
+in simulation (see [node_a_imu.robot](tests/robot/node_a_imu.robot)); the co-simulation
+compensates for this, and for other model differences listed in
+[simulation.md](docs/simulation.md). The magnetometer and accelerometer axes are
+assumed aligned; a real LSM9DS1 needs its magnetometer axes remapped. Timing figures such as interrupt latency and
 inference time do not reflect real hardware. Electrical concerns (I2C pull-ups, CAN
 termination, signal integrity) are not simulated. The STM32F4 Ethernet MAC needs an
 AHB clock of at least 25 MHz, but both nodes run from the 16 MHz HSI; Node B needs

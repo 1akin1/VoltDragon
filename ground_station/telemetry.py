@@ -1,4 +1,4 @@
-"""Decoder for Node B's 60-byte UDP telemetry packet (docs/telemetry.md).
+"""Decoder for Node B's 80-byte UDP telemetry packet, version 2 (docs/telemetry.md).
 
 Written independently from the firmware encoder (firmware/common/src/tlm_msg.c);
 both are checked against the same reference packet, so a layout change on one
@@ -11,18 +11,24 @@ import struct
 import zlib
 from dataclasses import dataclass
 
-PACKET_LEN = 60
-VERSION = 1
+PACKET_LEN = 80
+VERSION = 2
 MAGIC = b"VDTM"
 DEFAULT_PORT = 5600
 
 FLAG_NODE_A_FRESH = 0x01
 FLAG_IMU_VALID = 0x02
 FLAG_RECORDER_OK = 0x04
+FLAG_GPS_FIX = 0x08
+FLAG_MAG_OK = 0x10
+HEADING_SOURCE_SHIFT = 5
+HEADING_SOURCE_MASK = 0x60
+HEADING_SOURCES = ("none", "magnetometer", "gps")
 
 # magic, version, flags, length, seq, B uptime, A uptime, A resets, B resets, A age,
-# accel[3], gyro[3], mag[3], reserved, CAN valid, rejected, lost, CRC-32
-_LAYOUT = struct.Struct("<4sBBHIIIBBH3h3h3hHIIII")
+# accel[3], gyro[3], mag[3], GPS satellites, GPS quality, CAN valid, rejected, lost,
+# latitude, longitude, altitude, heading, field, speed, GPS age, reserved, CRC-32
+_LAYOUT = struct.Struct("<4sBBHIIIBBH3h3h3hBBIIIiihHHHHHI")
 assert _LAYOUT.size == PACKET_LEN
 
 _GYRO_UNIT_MDPS = 10
@@ -44,9 +50,18 @@ class Telemetry:
     accel_mg: tuple[int, int, int]
     gyro_mdps: tuple[int, int, int]
     mag_mgauss: tuple[int, int, int]
+    gps_satellites: int
+    gps_quality: int
     can_valid: int
     can_rejected: int
     can_lost: int
+    lat_deg: float
+    lon_deg: float
+    alt_msl_m: float
+    heading_deg: float
+    field_mgauss: int
+    speed_mps: float
+    gps_age_ms: int
 
     @property
     def node_a_fresh(self) -> bool:
@@ -60,25 +75,40 @@ class Telemetry:
     def recorder_ok(self) -> bool:
         return bool(self.flags & FLAG_RECORDER_OK)
 
+    @property
+    def gps_fix(self) -> bool:
+        return bool(self.flags & FLAG_GPS_FIX)
+
+    @property
+    def mag_ok(self) -> bool:
+        return bool(self.flags & FLAG_MAG_OK)
+
+    @property
+    def heading_source(self) -> str:
+        index = (self.flags & HEADING_SOURCE_MASK) >> HEADING_SOURCE_SHIFT
+        return HEADING_SOURCES[index] if index < len(HEADING_SOURCES) else "unknown"
+
 
 def decode(datagram: bytes) -> Telemetry:
     """Parses and checks a telemetry datagram."""
     if len(datagram) != PACKET_LEN:
         raise TelemetryError(f"length {len(datagram)}, expected {PACKET_LEN}")
 
-    fields = _LAYOUT.unpack(datagram)
-    magic, version, flags, length, seq, b_up, a_up, a_rst, b_rst, a_age = fields[:10]
-    accel, gyro, mag = fields[10:13], fields[13:16], fields[16:19]
-    can_valid, can_rejected, can_lost, crc = fields[20:24]
-
+    f = _LAYOUT.unpack(datagram)
+    magic, version, flags, length = f[0:4]
     if magic != MAGIC:
         raise TelemetryError(f"bad magic {magic!r}")
     if version != VERSION:
         raise TelemetryError(f"unsupported version {version}")
     if length != PACKET_LEN:
         raise TelemetryError(f"length field {length}, expected {PACKET_LEN}")
-    if zlib.crc32(datagram[:-4]) != crc:
+    if zlib.crc32(datagram[:-4]) != f[-1]:
         raise TelemetryError("CRC mismatch")
+
+    seq, b_up, a_up, a_rst, b_rst, a_age = f[4:10]
+    accel, gyro, mag = f[10:13], f[13:16], f[16:19]
+    sats, quality, can_valid, can_rejected, can_lost = f[19:24]
+    lat, lon, alt_dm, heading, field, speed_dm, gps_age = f[24:31]
 
     return Telemetry(
         seq=seq,
@@ -91,10 +121,33 @@ def decode(datagram: bytes) -> Telemetry:
         accel_mg=accel,
         gyro_mdps=tuple(v * _GYRO_UNIT_MDPS for v in gyro),
         mag_mgauss=mag,
+        gps_satellites=sats,
+        gps_quality=quality,
         can_valid=can_valid,
         can_rejected=can_rejected,
         can_lost=can_lost,
+        lat_deg=lat / 1e7,
+        lon_deg=lon / 1e7,
+        alt_msl_m=alt_dm / 10.0,
+        heading_deg=heading / 100.0,
+        field_mgauss=field,
+        speed_mps=speed_dm / 10.0,
+        gps_age_ms=gps_age,
     )
+
+
+def encode(t: Telemetry) -> bytes:
+    """Builds a packet; used by tests and tools that stand in for Node B."""
+    body = _LAYOUT.pack(
+        MAGIC, VERSION, t.flags, PACKET_LEN, t.seq, t.node_b_uptime_ms, t.node_a_uptime_ms,
+        t.node_a_resets, t.node_b_resets, t.node_a_age_ms,
+        *t.accel_mg, *(v // _GYRO_UNIT_MDPS for v in t.gyro_mdps), *t.mag_mgauss,
+        t.gps_satellites, t.gps_quality, t.can_valid, t.can_rejected, t.can_lost,
+        round(t.lat_deg * 1e7), round(t.lon_deg * 1e7), round(t.alt_msl_m * 10.0),
+        round(t.heading_deg * 100.0), t.field_mgauss, round(t.speed_mps * 10.0), t.gps_age_ms,
+        0, 0,
+    )[:-4]
+    return body + struct.pack("<I", zlib.crc32(body))
 
 
 class SequenceMonitor:

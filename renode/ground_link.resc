@@ -10,14 +10,9 @@
 :   python -m ground_station.command TLM_RATE 20
 :
 : Wireshark on tap0 shows the telemetry broadcasts and command exchanges.
+: For a flight with the plant model driving the sensors, use: python -m sim.mission --tap
 
 include $ORIGIN/system.resc
-
-emulation CreateSwitch "groundLink"
-mach set "node_b"
-connector Connect sysbus.ethernet groundLink
-emulation CreateTap "tap0" "tap"
-connector Connect host.tap groundLink
-mach clear
+include $ORIGIN/tap_link.resc
 
 start

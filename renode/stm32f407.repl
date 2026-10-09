@@ -5,3 +5,21 @@ using "platforms/cpus/stm32f4.repl"
 // SysTick at 72 MHz, which would make the 1 ms tick run 4.5x too fast.
 nvic:
     systickFrequency: 16000000
+
+// The UART models derive their baud rate from BRR and this clock; the stock
+// default of 8 MHz would halve every baud rate the firmware configures (a
+// 9600 baud GPS would deliver 4800 baud).
+usart1:
+    frequency: 16000000
+
+usart2:
+    frequency: 16000000
+
+usart3:
+    frequency: 16000000
+
+uart4:
+    frequency: 16000000
+
+uart5:
+    frequency: 16000000

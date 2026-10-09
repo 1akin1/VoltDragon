@@ -31,8 +31,11 @@ void uart_flush(usart_regs_t *uart);
  */
 bool uart_try_getc(usart_regs_t *uart, char *out);
 
-/** Size of the interrupt-driven receive buffer; a power of two. */
-#define UART_RX_BUFFER_SIZE (128U)
+/**
+ * Size of the interrupt-driven receive buffer; a power of two. 256 bytes hold
+ * a GPS fix (two NMEA sentences, about 150 bytes) or three full-length commands.
+ */
+#define UART_RX_BUFFER_SIZE (256U)
 
 /**
  * Receive ring buffer filled by the UART interrupt. Single producer (the

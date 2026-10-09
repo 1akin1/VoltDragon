@@ -2,11 +2,12 @@
  * @file can_tx.h
  * @brief Node A -> Node B CAN messages at 50 Hz (HLR-011, HLR-013).
  *
- * Node A sends one frame every 5 ms in a fixed rotation STATUS, ACCEL, GYRO,
- * MAG, so each message repeats every 20 ms (50 Hz) and only one frame is ever
- * in flight. Bursts of back-to-back frames would overflow the receiver's
- * three-deep FIFO. The IMU messages are skipped while there is no valid IMU
- * sample. Message layout: docs/can-messages.md.
+ * Node A uses a fixed schedule of ten 2 ms slots: STATUS, ACCEL, GYRO, MAG,
+ * GPS_LAT, GPS_LON, NAV and three idle slots. Each message therefore repeats
+ * every 20 ms (50 Hz) and only one frame is ever in flight; bursts of
+ * back-to-back frames would overflow the receiver's three-deep FIFO. The IMU
+ * and GPS messages are skipped while their data is not valid, so Node B sees
+ * the data age grow. Message layout: docs/can-messages.md.
  */
 #ifndef CAN_TX_H
 #define CAN_TX_H
@@ -15,7 +16,8 @@
 #include <stdint.h>
 
 #define CAN_TX_PERIOD_MS (20UL)
-#define CAN_TX_SLOT_MS   (5UL)
+#define CAN_TX_SLOT_MS   (2UL)
+#define CAN_TX_SLOTS     (10U)
 
 /** Faults that can be injected into the next transmitted frame, for testing. */
 typedef enum

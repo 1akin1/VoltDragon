@@ -119,6 +119,33 @@ static void status_round_trips(void)
     CHECK_EQ(out.uptime_ms, 0x12345678LL);
 }
 
+static void gps_and_nav_round_trip(void)
+{
+    const canmsg_gps_t gps_in = { -15000000, 328000000, -123, 1U, 9U };
+    const canmsg_nav_t nav_in = { 35999U, 650U, CANMSG_NAV_GPS_FIX | (2U << CANMSG_NAV_SOURCE_SHIFT),
+                                  60U };
+    canmsg_gps_t gps_out = { 0, 0, 0, 0U, 0U };
+    canmsg_nav_t nav_out = { 0U, 0U, 0U, 0U };
+    uint8_t payload[CANMSG_PAYLOAD_LEN];
+
+    canmsg_encode_gps_lat(payload, &gps_in);
+    canmsg_decode_gps_lat(payload, &gps_out);
+    canmsg_encode_gps_lon(payload, &gps_in);
+    canmsg_decode_gps_lon(payload, &gps_out);
+    CHECK_EQ(gps_out.lat_e7, -15000000);
+    CHECK_EQ(gps_out.lon_e7, 328000000);
+    CHECK_EQ(gps_out.alt_msl_dm, -123);
+    CHECK_EQ(gps_out.quality, 1);
+    CHECK_EQ(gps_out.satellites, 9);
+
+    canmsg_encode_nav(payload, &nav_in);
+    canmsg_decode_nav(payload, &nav_out);
+    CHECK_EQ(nav_out.heading_cdeg, 35999);
+    CHECK_EQ(nav_out.field_mgauss, 650);
+    CHECK_EQ(nav_out.flags, nav_in.flags);
+    CHECK_EQ(nav_out.speed_dmps, 60);
+}
+
 static void sequence_tracker_counts_gaps(void)
 {
     canmsg_seq_tracker_t t = { false, 0U };
@@ -169,6 +196,7 @@ int main(void)
     RUN(vec3_round_trips_and_saturates);
     RUN(gyro_scaling_keeps_ten_mdps_resolution);
     RUN(status_round_trips);
+    RUN(gps_and_nav_round_trip);
     RUN(sequence_tracker_counts_gaps);
     RUN(sequence_tracker_handles_wrap_around);
     RUN(sequence_tracker_resynchronises_on_restart_or_duplicate);

@@ -21,6 +21,9 @@
 #define GPIO_AF4_I2C    (4UL)
 #define GPIO_AF5_SPI    (5UL)
 #define GPIO_AF7_USART  (7UL)
+#define GPIO_AF8_UART4  (8UL)
+#define GPS_TX_PIN      (10U)
+#define GPS_RX_PIN      (11U)
 #define GPIO_AF9_CAN    (9UL)
 #define GPIO_AF11_ETH   (11UL)
 
@@ -66,6 +69,16 @@ void board_init(board_console_pins_t console_pins)
         gpio_set_alternate(GPIOA, CONSOLE_TX_PIN, GPIO_AF7_USART);
         gpio_set_alternate(GPIOA, CONSOLE_RX_PIN, GPIO_AF7_USART);
     }
+}
+
+void board_gps_uart_init(void)
+{
+    RCC->AHB1ENR |= RCC_AHB1ENR_GPIOCEN;
+    RCC->APB1ENR |= RCC_APB1ENR_UART4EN;
+    (void)RCC->APB1ENR;
+
+    gpio_set_alternate(GPIOC, GPS_TX_PIN, GPIO_AF8_UART4);
+    gpio_set_alternate(GPIOC, GPS_RX_PIN, GPIO_AF8_UART4);
 }
 
 void board_command_uart_init(void)

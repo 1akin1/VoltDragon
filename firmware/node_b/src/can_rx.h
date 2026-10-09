@@ -35,8 +35,12 @@ typedef struct
     int32_t         accel_mg[3];
     int32_t         gyro_mdps[3];
     int32_t         mag_mgauss[3];
+    canmsg_gps_t    gps;
+    canmsg_nav_t    nav;
     uint32_t        last_valid_ms;  /**< Arrival time of the last valid frame. */
+    uint32_t        gps_ms;         /**< Arrival time of the last GPS position frame. */
     bool            any_valid;
+    bool            any_gps;
 } can_rx_node_a_t;
 
 /** Joins the CAN bus and installs the acceptance filter. Returns false on failure. */

@@ -25,15 +25,16 @@ receive it.
 
 ## Telemetry packet
 
-One 60-byte packet per period, at the rate set with `TLM_RATE` (10 Hz by
-default, 10 to 50 Hz). All fields are little-endian.
+One 80-byte packet per period, at the rate set with `TLM_RATE` (10 Hz by
+default, 10 to 50 Hz). All fields are little-endian. This is version 2; version
+1 (Phase 2) was 60 bytes without the navigation fields.
 
 | Offset | Size | Field | Notes |
 |--------|------|-------|-------|
 | 0 | 4 | Magic | ASCII `VDTM` |
-| 4 | 1 | Version | 1 |
-| 5 | 1 | Flags | bit 0: Node A data fresh (age < 100 ms); bit 1: Node A IMU valid; bit 2: Node A recorder OK |
-| 6 | 2 | Length | 60 |
+| 4 | 1 | Version | 2 |
+| 5 | 1 | Flags | bit 0: Node A data fresh (age < 100 ms); bit 1: Node A IMU valid; bit 2: Node A recorder OK; bit 3: GPS fix (position younger than 1 s); bit 4: magnetometer OK; bits 5-6: heading source (0 none, 1 magnetometer, 2 GPS course) |
+| 6 | 2 | Length | 80 |
 | 8 | 4 | Sequence number | Increments per packet sent; restarts at 0 when Node B restarts |
 | 12 | 4 | Node B uptime | ms |
 | 16 | 4 | Node A uptime | ms, from Node A's STATUS message |
@@ -43,11 +44,20 @@ default, 10 to 50 Hz). All fields are little-endian.
 | 24 | 6 | Acceleration X, Y, Z | int16, mg |
 | 30 | 6 | Angular rate X, Y, Z | int16, units of 10 mdps |
 | 36 | 6 | Magnetic field X, Y, Z | int16, mgauss |
-| 42 | 2 | Reserved | 0 |
+| 42 | 1 | GPS satellites | |
+| 43 | 1 | GPS fix quality | NMEA GGA quality: 0 none, 1 GPS, 2 DGPS |
 | 44 | 4 | CAN frames valid | Running totals on Node B (see [can-messages.md](can-messages.md)) |
 | 48 | 4 | CAN frames rejected | |
 | 52 | 4 | CAN frames lost | |
-| 56 | 4 | CRC-32 | IEEE 802.3 (zlib) over bytes 0..55 |
+| 56 | 4 | Latitude | int32, degrees x 1e7 |
+| 60 | 4 | Longitude | int32, degrees x 1e7 |
+| 64 | 2 | Altitude | int16, above mean sea level, 0.1 m |
+| 66 | 2 | Heading | uint16, true heading, 0.01 deg |
+| 68 | 2 | Magnetic field strength | uint16, mgauss, as measured by Node A |
+| 70 | 2 | Ground speed | uint16, 0.1 m/s |
+| 72 | 2 | GPS data age | ms since the last position on CAN; 65535 if none yet |
+| 74 | 2 | Reserved | 0 |
+| 76 | 4 | CRC-32 | IEEE 802.3 (zlib) over bytes 0..75 |
 
 UDP has its own checksum, but it is optional in IPv4 and only covers the
 transport hop. The CRC-32 protects the packet end to end, from the encoder on
@@ -60,14 +70,18 @@ Both decoders (C and Python) and the C encoder are tested against this packet,
 which was built from the table above with Python's `struct` module:
 
 ```
-5644544d01073c000700000040e20100c0d40100010003000cfefa00e7031a04
-fcd600001f018dff35fe0000e80300000100000002000000bc7cc438
+5644544d023f50000700000040e20100c0d40100010003000cfefa00e7031a04
+fcd600001f018dff35fe0901e803000001000000020000009246c8172ef88c13
+22247c1708023c0096000000c88e7318
 ```
 
-It decodes to sequence 7, all flags set, Node B uptime 123456 ms, Node A
-uptime 120000 ms, Node A reset count 1, data age 3 ms, acceleration
-(-500, 250, 999) mg, angular rate (10500, -105000, 0) mdps, magnetic field
-(287, -115, -459) mgauss and CAN counters 1000 valid, 1 rejected, 2 lost.
+It decodes to sequence 7, flags 0x3F (all status flags set, heading from the
+magnetometer), Node B uptime 123456 ms, Node A uptime 120000 ms, Node A reset
+count 1, data age 3 ms, acceleration (-500, 250, 999) mg, angular rate
+(10500, -105000, 0) mdps, magnetic field (287, -115, -459) mgauss, 9 satellites
+with fix quality 1, CAN counters 1000 valid, 1 rejected, 2 lost, position
+39.9001234 N 32.8005678 E at 925.0 m, heading 60.12 deg, field 520 mG, ground
+speed 6.0 m/s and GPS data age 150 ms.
 
 ## Commands over UDP
 
@@ -88,13 +102,34 @@ sudo renode renode/ground_link.resc        # starts both nodes
 sudo ip addr add 192.168.10.1/24 dev tap0
 sudo ip link set tap0 up
 
-python -m ground_station.receiver          # prints each packet and counts losses
+python -m ground_station.display           # map, plots and alarms (needs matplotlib)
+python -m ground_station.receiver          # or: one text line per packet, with loss counts
 python -m ground_station.command TLM_RATE 20
 python -m ground_station.command CAN
 ```
 
 Wireshark or `tcpdump -i tap0` shows the telemetry broadcasts, ARP and the
-command exchanges.
+command exchanges. For a flight with the plant model driving the sensors, use
+`sudo python -m sim.mission --tap` instead of `ground_link.resc` (see
+[simulation.md](simulation.md)).
+
+## Ground-station display
+
+`python -m ground_station.display` (HLR-019) shows:
+
+- a map of the route (pylons and conductors) with the vehicle's track, red
+  where the magnetometer was disturbed, and its position and heading;
+- the distance to the nearest conductor, computed on the ground from the GPS
+  position and the route geometry, against the 12 m warning and 10 m minimum
+  (HLR-001, HLR-002);
+- the measured field strength against the magnetometer's acceptance band, and
+  the heading coloured by its source;
+- the active alarms: link lost, too close to the line, proximity, Node A data
+  stale, GPS no fix, IMU invalid, magnetometer disturbed, recorder off, packet
+  loss and CAN errors.
+
+`--record FILE` keeps the received packets, `--replay FILE` plays them back, and
+`--snapshot IMAGE` saves an image instead of opening a window.
 
 ## Automated tests
 

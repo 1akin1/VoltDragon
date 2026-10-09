@@ -119,6 +119,7 @@ _Static_assert(offsetof(rcc_regs_t, CSR) == 0x74U, "RCC layout");
 #define RCC_AHB1RSTR_ETHMACRST  (1UL << 25)
 #define RCC_APB1ENR_USART2EN    (1UL << 17)
 #define RCC_APB1ENR_USART3EN    (1UL << 18)
+#define RCC_APB1ENR_UART4EN     (1UL << 19)
 #define RCC_APB1ENR_I2C1EN      (1UL << 21)
 #define RCC_APB1ENR_CAN1EN      (1UL << 25)
 #define RCC_APB1RSTR_I2C1RST    (1UL << 21)
@@ -409,9 +410,11 @@ typedef struct
 #define GPIOG   ((gpio_regs_t *)0x40021800UL)
 #define USART2  ((usart_regs_t *)0x40004400UL)
 #define USART3  ((usart_regs_t *)0x40004800UL)
+#define UART4   ((usart_regs_t *)0x40004C00UL)
 
 /* Interrupt numbers (RM0090 table 61). */
 #define USART3_IRQN (39U)
+#define UART4_IRQN  (52U)
 #define I2C1    ((i2c_regs_t *)0x40005400UL)
 #define CAN1    ((can_regs_t *)0x40006400UL)
 #define ETH_MAC ((eth_mac_regs_t *)0x40028000UL)

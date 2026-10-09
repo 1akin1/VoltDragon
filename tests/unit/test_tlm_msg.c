@@ -12,12 +12,14 @@ UNIT_MAIN_DEFINITIONS;
 
 /* Built from the specification with Python's struct module; also used by tests/python. */
 static const char REFERENCE_HEX[] =
-    "5644544d01073c000700000040e20100c0d40100010003000cfefa00e7031a04"
-    "fcd600001f018dff35fe0000e80300000100000002000000bc7cc438";
+    "5644544d023f50000700000040e20100c0d40100010003000cfefa00e7031a04"
+    "fcd600001f018dff35fe0901e803000001000000020000009246c8172ef88c13"
+    "22247c1708023c0096000000c88e7318";
 
 static const tlm_packet_t REFERENCE = {
     .seq = 7U,
-    .flags = TLM_FLAG_NODE_A_FRESH | TLM_FLAG_IMU_VALID | TLM_FLAG_RECORDER_OK,
+    .flags = TLM_FLAG_NODE_A_FRESH | TLM_FLAG_IMU_VALID | TLM_FLAG_RECORDER_OK |
+             TLM_FLAG_GPS_FIX | TLM_FLAG_MAG_OK | (1U << TLM_HEADING_SOURCE_SHIFT),
     .node_b_uptime_ms = 123456U,
     .node_a_uptime_ms = 120000U,
     .node_a_resets = 1U,
@@ -26,9 +28,18 @@ static const tlm_packet_t REFERENCE = {
     .accel_mg = { -500, 250, 999 },
     .gyro_mdps = { 10500, -105000, 0 },
     .mag_mgauss = { 287, -115, -459 },
+    .gps_satellites = 9U,
+    .gps_quality = 1U,
     .can_valid = 1000U,
     .can_rejected = 1U,
     .can_lost = 2U,
+    .lat_e7 = 399001234,
+    .lon_e7 = 328005678,
+    .alt_msl_dm = 9250,
+    .heading_cdeg = 6012U,
+    .field_mgauss = 520U,
+    .speed_dmps = 60U,
+    .gps_age_ms = 150U,
 };
 
 static void reference_bytes(uint8_t *out)
@@ -59,13 +70,21 @@ static void decodes_reference_packet(void)
     reference_bytes(bytes);
     CHECK(tlm_decode(bytes, sizeof(bytes), &p));
     CHECK_EQ(p.seq, 7);
-    CHECK_EQ(p.flags, 0x07);
+    CHECK_EQ(p.flags, 0x3F);
     CHECK_EQ(p.node_b_uptime_ms, 123456);
     CHECK_EQ(p.node_a_age_ms, 3);
     CHECK_EQ(p.accel_mg[0], -500);
     CHECK_EQ(p.gyro_mdps[1], -105000);
     CHECK_EQ(p.mag_mgauss[2], -459);
+    CHECK_EQ(p.gps_satellites, 9);
     CHECK_EQ(p.can_lost, 2);
+    CHECK_EQ(p.lat_e7, 399001234);
+    CHECK_EQ(p.lon_e7, 328005678);
+    CHECK_EQ(p.alt_msl_dm, 9250);
+    CHECK_EQ(p.heading_cdeg, 6012);
+    CHECK_EQ(p.field_mgauss, 520);
+    CHECK_EQ(p.speed_dmps, 60);
+    CHECK_EQ(p.gps_age_ms, 150);
 }
 
 static void rejects_any_single_bit_error(void)
