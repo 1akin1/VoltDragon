@@ -10,6 +10,14 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# Host unit tests replace the firmware build (they need the native compiler, not the cross toolchain).
+option(VOLTDRAGON_HOST_TESTS "Build host unit tests instead of the firmware" OFF)
+if(VOLTDRAGON_HOST_TESTS)
+    enable_testing()
+    add_subdirectory(tests/unit)
+    return()
+endif()
+
 # Cortex-M4F (STM32F407) target flags shared by both nodes
 set(MCU_FLAGS -mcpu=cortex-m4 -mthumb -mfpu=fpv4-sp-d16 -mfloat-abi=hard)
 

@@ -3,6 +3,8 @@
 # linked, even though no code references them by name.
 add_library(voltdragon_common OBJECT
     src/board.c
+    src/cmd_dispatch.c
+    src/cmd_protocol.c
     src/crc32.c
     src/fault.c
     src/i2c.c

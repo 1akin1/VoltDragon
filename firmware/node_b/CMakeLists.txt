@@ -1,4 +1,6 @@
-add_executable(node_b src/main.c)
+add_executable(node_b
+    src/commands.c
+    src/main.c)
 set_target_properties(node_b PROPERTIES SUFFIX ".elf")
 target_link_libraries(node_b PRIVATE voltdragon_common)
 target_link_options(node_b PRIVATE -Wl,-Map=$<TARGET_FILE_DIR:node_b>/node_b.map)

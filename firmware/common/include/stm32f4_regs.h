@@ -53,6 +53,8 @@ typedef struct
 #define SCB         ((scb_regs_t *)0xE000ED00UL)
 #define SYSTICK     ((systick_regs_t *)0xE000E010UL)
 #define SCB_CPACR   (*(volatile uint32_t *)0xE000ED88UL)
+/** NVIC interrupt set-enable registers, one bit per IRQ number. */
+#define NVIC_ISER   ((volatile uint32_t *)0xE000E100UL)
 #define CORE_DHCSR  (*(volatile uint32_t *)0xE000EDF0UL)
 
 #define SCB_AIRCR_VECTKEY       (0x05FAUL << 16)
@@ -109,6 +111,7 @@ _Static_assert(offsetof(rcc_regs_t, CSR) == 0x74U, "RCC layout");
 #define RCC_AHB1ENR_GPIOAEN     (1UL << 0)
 #define RCC_AHB1ENR_GPIOBEN     (1UL << 1)
 #define RCC_APB1ENR_USART2EN    (1UL << 17)
+#define RCC_APB1ENR_USART3EN    (1UL << 18)
 #define RCC_APB1ENR_I2C1EN      (1UL << 21)
 #define RCC_APB1RSTR_I2C1RST    (1UL << 21)
 #define RCC_APB2ENR_SPI1EN      (1UL << 12)
@@ -161,6 +164,7 @@ _Static_assert(offsetof(usart_regs_t, CR1) == 0x0CU, "USART layout");
 #define USART_SR_TC             (1UL << 6)
 #define USART_SR_TXE            (1UL << 7)
 #define USART_CR1_RE            (1UL << 2)
+#define USART_CR1_RXNEIE        (1UL << 5)
 #define USART_CR1_TE            (1UL << 3)
 #define USART_CR1_UE            (1UL << 13)
 
@@ -245,6 +249,10 @@ typedef struct
 #define GPIOA   ((gpio_regs_t *)0x40020000UL)
 #define GPIOB   ((gpio_regs_t *)0x40020400UL)
 #define USART2  ((usart_regs_t *)0x40004400UL)
+#define USART3  ((usart_regs_t *)0x40004800UL)
+
+/* Interrupt numbers (RM0090 table 61). */
+#define USART3_IRQN (39U)
 #define I2C1    ((i2c_regs_t *)0x40005400UL)
 #define SPI1    ((spi_regs_t *)0x40013000UL)
 #define IWDG    ((iwdg_regs_t *)0x40003000UL)

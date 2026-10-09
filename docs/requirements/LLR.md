@@ -1,6 +1,6 @@
 # Low-Level Requirements (LLR)
 
-Status: **Draft v0.2** · Phase 2
+Status: **Draft v0.3** · Phase 2
 
 Low-level requirements refine the [high-level requirements](HLR.md) into
 statements that can be implemented and tested directly. The full
@@ -68,3 +68,18 @@ HLR → LLR → code → test traceability matrix is produced in Phase 6.
 | LLR-056 | Each 4 KiB subsector shall be erased just before its first record is written. | HLR-018 | `flashlog.c` | `Should Cross Erase Boundaries Without Errors` |
 | LLR-057 | Each record shall be read back and compared after programming. On a mismatch, the slot shall be left as written and the record retried in the next slot. | HLR-018 | `flashlog.c` | Inspection (fault injection planned) |
 | LLR-058 | Records that cannot be queued or written (queue full, flash full) shall be counted as dropped. Flash errors shall be counted, and both counts shall be logged once per second. | HLR-018 | `flashlog.c` | `Should Record At 10 Hz Without Losses` |
+
+## Operator command interface (Node B)
+
+Protocol details: [command-interface.md](../command-interface.md).
+
+| ID | Requirement | Parent | Code | Test |
+|----|-------------|--------|------|------|
+| LLR-060 | Node B shall receive operator commands on USART3 (PB10/PB11, 115200 baud, 8N1) through an interrupt-driven 128-byte buffer, and shall count bytes lost to UART overruns or a full buffer. | HLR-014 | `board.c`, `uart.c`, `commands.c` | `Should Answer Back To Back Commands In Order` |
+| LLR-061 | A frame shall start at `$` (any `$` restarts assembly) and end at CR or LF. Empty lines shall be ignored. Lines over 80 characters shall be rejected with `LENGTH`. | HLR-014 | `cmd_protocol.c` | Unit: `line_*`; Robot: `Should Resynchronise After Line Noise`, `Should Reject Corrupted Frames` |
+| LLR-062 | A frame shall be rejected with `FRAME`, `CHECKSUM` or `SEQ`, and sequence number 0, if it is malformed, its XOR checksum does not match, or its sequence number is not in 1..65535. | HLR-013, HLR-014 | `cmd_protocol.c`, `cmd_dispatch.c` | Unit: `parse_rejects_*`; Robot: `Should Reject Corrupted Frames` |
+| LLR-063 | A valid frame with an unknown verb shall be rejected with `UNKNOWN`; a wrong argument count or an argument value refused by the command shall be rejected with `ARGS`. Rejected commands shall have no effect. | HLR-014 | `cmd_dispatch.c`, `commands.c` | Unit: `rejects_*`; Robot: `Should Reject Unknown Commands`, `Should Reject Invalid Arguments` |
+| LLR-064 | Every complete line shall receive exactly one response, `ACK` or `NAK`, carrying the request's sequence number when it can be trusted and a valid checksum. | HLR-014 | `cmd_dispatch.c`, `commands.c` | All `node_b_commands.robot` tests (responses are matched including their checksum) |
+| LLR-065 | A request with the same sequence number as the previous one shall be answered with the previous response without executing the command again. | HLR-014 | `cmd_dispatch.c` | Unit: `replays_*`; Robot: `Should Replay The Response To A Retransmitted Command` |
+| LLR-066 | Node B shall support `PING`, `VERSION`, `STATUS` and `TLM_RATE` (10 to 50 Hz, default 10 Hz). | HLR-012, HLR-014 | `commands.c` | `Should Answer Ping And Version`, `Should Report Status Counters`, `Should Set And Query The Telemetry Rate` |
+| LLR-067 | Node B shall log each command and its outcome on the debug console. | (derived) | `commands.c` | `Should Replay The Response To A Retransmitted Command` |

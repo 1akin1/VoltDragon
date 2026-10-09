@@ -65,3 +65,68 @@ bool uart_try_getc(usart_regs_t *uart, char *out)
     }
     return false;
 }
+
+_Static_assert((UART_RX_BUFFER_SIZE & (UART_RX_BUFFER_SIZE - 1U)) == 0U,
+               "UART_RX_BUFFER_SIZE must be a power of two");
+
+void uart_rx_irq_start(usart_regs_t *uart, uart_rx_buffer_t *rx, uint32_t irq_number)
+{
+    rx->head = 0U;
+    rx->tail = 0U;
+    rx->overruns = 0U;
+    rx->dropped = 0U;
+
+    /* Discard anything received before the buffer existed. */
+    (void)uart->SR;
+    (void)uart->DR;
+
+    uart->CR1 |= USART_CR1_RXNEIE;
+    NVIC_ISER[irq_number / 32U] = 1UL << (irq_number % 32U);
+}
+
+void uart_rx_irq_handler(usart_regs_t *uart, uart_rx_buffer_t *rx)
+{
+    const uint32_t sr = uart->SR;
+
+    if ((sr & (USART_SR_RXNE | USART_SR_ORE)) == 0U)
+    {
+        return;
+    }
+
+    /* Reading DR after SR clears both RXNE and ORE. */
+    const uint8_t byte = (uint8_t)(uart->DR & 0xFFU);
+    if ((sr & USART_SR_ORE) != 0U)
+    {
+        rx->overruns = rx->overruns + 1U;
+    }
+    if ((sr & USART_SR_RXNE) == 0U)
+    {
+        return;
+    }
+
+    /* Indices run freely and wrap; their difference is the fill level. */
+    const uint32_t head = rx->head;
+    if ((head - rx->tail) >= UART_RX_BUFFER_SIZE)
+    {
+        rx->dropped = rx->dropped + 1U;
+        return;
+    }
+    rx->data[head & (UART_RX_BUFFER_SIZE - 1U)] = byte;
+    /* Publish the byte before the index that makes it visible. */
+    __asm volatile("dmb" ::: "memory");
+    rx->head = head + 1U;
+}
+
+bool uart_rx_pop(uart_rx_buffer_t *rx, char *out)
+{
+    const uint32_t tail = rx->tail;
+
+    if (rx->head == tail)
+    {
+        return false;
+    }
+    *out = (char)rx->data[tail & (UART_RX_BUFFER_SIZE - 1U)];
+    __asm volatile("dmb" ::: "memory");
+    rx->tail = tail + 1U;
+    return true;
+}
