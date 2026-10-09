@@ -10,6 +10,7 @@
 #include "board.h"
 #include "can_rx.h"
 #include "cmd_dispatch.h"
+#include "flight_mode.h"
 #include "log.h"
 #include "reset_info.h"
 #include "systick.h"
@@ -39,31 +40,31 @@ void USART3_IRQHandler(void)
     uart_rx_irq_handler(BOARD_COMMAND_UART, &s_cmd.rx);
 }
 
-static bool handle_ping(const cmd_request_t *req, cmd_response_t *rsp)
+static cmd_error_t handle_ping(const cmd_request_t *req, cmd_response_t *rsp)
 {
     (void)req;
     (void)rsp;
-    return true;
+    return CMD_OK;
 }
 
-static bool handle_version(const cmd_request_t *req, cmd_response_t *rsp)
+static cmd_error_t handle_version(const cmd_request_t *req, cmd_response_t *rsp)
 {
     (void)req;
     cmd_response_add(rsp, VOLTDRAGON_VERSION_STRING);
-    return true;
+    return CMD_OK;
 }
 
-static bool handle_status(const cmd_request_t *req, cmd_response_t *rsp)
+static cmd_error_t handle_status(const cmd_request_t *req, cmd_response_t *rsp)
 {
     (void)req;
     cmd_response_add_u32(rsp, systick_now_ms());
     cmd_response_add_u32(rsp, reset_info_count());
     cmd_response_add_u32(rsp, s_cmd.accepted);
     cmd_response_add_u32(rsp, s_cmd.rejected);
-    return true;
+    return CMD_OK;
 }
 
-static bool handle_tlm_rate(const cmd_request_t *req, cmd_response_t *rsp)
+static cmd_error_t handle_tlm_rate(const cmd_request_t *req, cmd_response_t *rsp)
 {
     if (req->argc == 1U)
     {
@@ -72,15 +73,15 @@ static bool handle_tlm_rate(const cmd_request_t *req, cmd_response_t *rsp)
         if (!cmd_parse_u32(req->args[0], &hz) || (hz < COMMANDS_TLM_RATE_MIN_HZ) ||
             (hz > COMMANDS_TLM_RATE_MAX_HZ))
         {
-            return false;
+            return CMD_ERR_ARGS;
         }
         s_cmd.telemetry_rate_hz = hz;
     }
     cmd_response_add_u32(rsp, s_cmd.telemetry_rate_hz);
-    return true;
+    return CMD_OK;
 }
 
-static bool handle_can(const cmd_request_t *req, cmd_response_t *rsp)
+static cmd_error_t handle_can(const cmd_request_t *req, cmd_response_t *rsp)
 {
     const can_rx_stats_t stats = can_rx_stats();
     can_rx_node_a_t node_a;
@@ -98,7 +99,49 @@ static bool handle_can(const cmd_request_t *req, cmd_response_t *rsp)
     {
         cmd_response_add(rsp, "-");
     }
-    return true;
+    return CMD_OK;
+}
+
+/*
+ * MODE <name> [OVERRIDE]: checked here against Node A's mode with the same transition
+ * table Node A uses, then forwarded over CAN; Node A decides finally. The ACK means
+ * the request was forwarded (or the mode is already the one requested).
+ */
+static cmd_error_t handle_mode(const cmd_request_t *req, cmd_response_t *rsp)
+{
+    flight_mode_t requested = FLIGHT_MODE_MISSION;
+    flight_mode_t current = FLIGHT_MODE_MISSION;
+    const uint32_t now_ms = systick_now_ms();
+
+    if (!flight_mode_from_name(req->args[0], &requested))
+    {
+        return CMD_ERR_ARGS;
+    }
+    const bool override = req->argc == 2U;
+    if (override && (strcmp(req->args[1], "OVERRIDE") != 0))
+    {
+        return CMD_ERR_ARGS;
+    }
+    /* Without Node A's current mode the request cannot be checked. */
+    if (!can_rx_node_a_mode(now_ms, &current))
+    {
+        return CMD_ERR_REFUSED;
+    }
+
+    const flight_change_t change = flight_mode_check(current, requested, FLIGHT_CAUSE_OPERATOR,
+                                                     override);
+    if ((change != FLIGHT_CHANGE_OK) && (change != FLIGHT_CHANGE_UNCHANGED))
+    {
+        LOG_WARN("cmd: mode %s -> %s refused: %s", flight_mode_name(current),
+                 flight_mode_name(requested), flight_change_name(change));
+        return CMD_ERR_REFUSED;
+    }
+    if (change == FLIGHT_CHANGE_OK)
+    {
+        (void)can_rx_request_mode(requested, override, now_ms);
+    }
+    cmd_response_add(rsp, flight_mode_name(requested));
+    return CMD_OK;
 }
 
 static const cmd_entry_t s_table[] = {
@@ -107,12 +150,23 @@ static const cmd_entry_t s_table[] = {
     { "STATUS", 0U, 0U, handle_status },
     { "TLM_RATE", 0U, 1U, handle_tlm_rate },
     { "CAN", 0U, 0U, handle_can },
+    { "MODE", 1U, 2U, handle_mode },
 };
 
 #define TABLE_SIZE (sizeof(s_table) / sizeof(s_table[0]))
 
 static void record_outcome(const char *transport, const char *request, cmd_outcome_t outcome)
 {
+    /*
+     * Any intact frame shows the ground station is there (HLR-003), whether or not the
+     * command was accepted. A damaged frame does not: it may be noise.
+     */
+    if ((outcome.error != CMD_ERR_FRAME) && (outcome.error != CMD_ERR_CHECKSUM) &&
+        (outcome.error != CMD_ERR_SEQ) && (outcome.error != CMD_ERR_LENGTH))
+    {
+        can_rx_ground_contact(systick_now_ms());
+    }
+
     /* A replay re-sends an earlier reply; the command was not processed again. */
     if (outcome.replayed)
     {

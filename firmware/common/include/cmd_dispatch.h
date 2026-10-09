@@ -2,9 +2,11 @@
  * @file cmd_dispatch.h
  * @brief Command table lookup, argument-count checks and retransmission handling.
  *
- * A request whose sequence number equals that of the previous request is a
+ * A request identical to the previous one, sequence number included, is a
  * retransmission (the reply was lost): the previous response is sent again and
- * the command is not executed a second time.
+ * the command is not executed a second time. A different request that reuses
+ * the sequence number (another sender, such as the ground station heartbeat)
+ * is executed normally.
  *
  * No hardware dependencies; unit-tested on the host (tests/unit).
  */
@@ -19,10 +21,11 @@
 
 /**
  * Executes a command. The response has already been started as an ACK for the
- * verb; the handler appends any result fields. Returning false turns the reply
- * into a NAK with reason ARGS (an argument value was rejected).
+ * verb; the handler appends any result fields and returns CMD_OK. Any other
+ * result turns the reply into a NAK with that reason: CMD_ERR_ARGS for a
+ * rejected argument value, CMD_ERR_REFUSED for a request not allowed now.
  */
-typedef bool (*cmd_handler_t)(const cmd_request_t *req, cmd_response_t *rsp);
+typedef cmd_error_t (*cmd_handler_t)(const cmd_request_t *req, cmd_response_t *rsp);
 
 typedef struct
 {
@@ -38,6 +41,7 @@ typedef struct
     size_t             count;
     bool               has_last;
     uint16_t           last_seq;
+    char               last_line[CMD_LINE_MAX + 1U];
     cmd_error_t        last_error;
     cmd_response_t     last_response;
 } cmd_dispatcher_t;

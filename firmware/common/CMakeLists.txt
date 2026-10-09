@@ -2,6 +2,7 @@
 # An OBJECT library makes sure the vector table and fault handlers are always
 # linked, even though no code references them by name.
 add_library(voltdragon_common OBJECT
+    src/ap_msg.c
     src/board.c
     src/can.c
     src/can_msg.c
@@ -10,6 +11,7 @@ add_library(voltdragon_common OBJECT
     src/crc32.c
     src/crc8.c
     src/fault.c
+    src/flight_mode.c
     src/i2c.c
     src/iwdg.c
     src/log.c

@@ -1,7 +1,8 @@
 # Plant model and co-simulation
 
 The plant model is the simulated world: the power line, the vehicle flying
-along it, the wind, and the sensors that observe it all. It drives Node A's
+along it, the wind, the sensors that observe it all, and the autopilot that
+flies the vehicle on Node A's orders. It drives Node A's
 sensors inside Renode in lockstep with the firmware, so the firmware runs on
 data from a physically consistent flight instead of hand-set test values.
 
@@ -35,10 +36,15 @@ A kinematic multirotor:
   capped at 3 m/s^2 (about 17 degrees of tilt), and wind acts through drag.
 - The thrust axis follows the demanded specific force with a 0.2 s lag, and the
   nose follows the route direction with a 1.5 s lag, so body rates stay realistic.
-- The default scenario includes a close inspection pass near the second pylon,
+- The flight plan includes a close inspection pass near the second pylon,
   with the offset reduced to 10 m: about 4 m from a conductor, deliberately
-  inside the 10 m minimum of HLR-001. It is the scenario that exercises the
-  magnetometer check now, and the safety logic in Phase 4.
+  inside the 10 m minimum of HLR-001. Node A's safety logic has to keep the
+  vehicle away; with a faulty autopilot that ignores it, the pass exercises the
+  magnetometer's disturbance check.
+- What the desired point does depends on the autopilot's mode (MISSION, HOLD,
+  RTH, LAND) and on any keep-out distance from an avoidance order; see
+  [autopilot-link.md](autopilot-link.md#the-simulated-autopilot). The autopilot
+  also models the battery.
 
 ## The sensors
 
@@ -61,9 +67,11 @@ sequenceDiagram
     participant A as Node A firmware
     loop every 100 ms of simulated time
         P->>P: advance 10 steps of 10 ms
-        P->>M: plant_feed: queue next step's accel/gyro samples,<br/>set magnetometer, write GPS sentences to UART4
+        P->>M: plant_feed: queue next step's accel/gyro samples,<br/>set magnetometer, write GPS sentences to UART4<br/>and the autopilot's $VDAPS to UART5
+        P->>M: once a second: PING into Node B's USART3 (ground heartbeat)
         P->>M: emulation RunFor "0.1"
         M->>A: firmware runs 100 ms, reads one queued sample per IMU read
+        A->>P: $VDCMD orders, via a file Renode writes UART5's output to
     end
 ```
 
@@ -79,6 +87,12 @@ the plant and the emulation in lockstep:
   takes far longer than 100 ms at 6 m/s.
 - **GPS** sentences for the step are written into UART4 just before it runs,
   and reach the firmware at the 9600 baud the firmware configured.
+- The **autopilot's status** (`$VDAPS`, 5 Hz) goes into UART5 the same way.
+  Node A's orders (`$VDCMD`) leave through UART5 into a file backend; the
+  co-simulation reads what was added after each step, so an order acts on the
+  plant one to two steps (100 to 200 ms) after Node A sent it.
+- The **ground station's heartbeat**, a `PING` once a second, is written into
+  Node B's command UART, until the scenario stops it.
 - Values are clipped to the sensors' configured full-scale ranges, as a real
   sensor would clip.
 - One step costs a fixed overhead of about 30 ms of monitor round trips plus
@@ -101,11 +115,25 @@ for real hardware:
 ## Running a mission
 
 ```sh
-python -m sim.mission --duration 90            # writes build/mission/
+python -m sim.mission --duration 90                       # writes build/mission/
+python -m sim.mission --scenario link-loss --duration 25
+python -m sim.mission --scenario battery --duration 40
+python -m sim.mission --scenario no-avoidance --start 150 --duration 45
 ```
 
-Output: `node_a.log` and `node_b.log` (the two consoles), `truth.csv` (the
-plant's ground truth every 50 ms) and `renode.log`.
+| Scenario | What happens |
+|----------|--------------|
+| `nominal` | The inspection pass; Node A keeps the vehicle at least 10 m from the line through the close part of the plan |
+| `no-avoidance` | The same plan with an autopilot that ignores avoidance orders (fault injection) |
+| `link-loss` | The ground station's heartbeat stops at 12 s; the vehicle returns home |
+| `battery` | Starts at 22 % draining at 0.5 %/s: return home below 20 %, land below 10 % |
+
+`--start` sets the along-track start position (the close pass begins at
+210 m), to reach the interesting part sooner.
+
+Output: `node_a.log` and `node_b.log` (the two consoles), `autopilot_rx.log`
+(Node A's orders to the autopilot), `truth.csv` (the plant's ground truth every
+50 ms, including mode, battery and keep-out) and `renode.log`.
 
 With a ground station on the host (Linux/WSL, as root because Renode creates a
 TAP device):
@@ -116,8 +144,23 @@ sudo ip addr add 192.168.10.1/24 dev tap0 && sudo ip link set tap0 up
 python -m ground_station.display --record build/mission/flight.tlm
 ```
 
-`tests/integration/test_mission.py` runs a 70 s mission and checks the
-firmware's behaviour against `truth.csv`: the magnetometer is flagged only
-near the line and recovers afterwards, the heading falls back to the GPS
-course meanwhile and matches the true heading in cruise, and GPS, CAN and
-telemetry run at their nominal rates without losses.
+With `--tap` the simulated heartbeat is off: the display sends it over UDP.
+Stop the display and the vehicle returns home 3 s later.
+
+## Integration tests
+
+`tests/integration` flies four scenarios and checks the firmware against
+`truth.csv` (about 11 minutes in all):
+
+- `test_mission.py`, nominal from 150 m: the close pass stays at least 10 m
+  from the line (HLR-001), one proximity warning within a control cycle of the
+  position and the avoidance order reaches the autopilot (HLR-002), the
+  magnetometer heading matches the true heading, and GPS, CAN and telemetry
+  run at their nominal rates without losses;
+- `test_mission.py`, no-avoidance from 150 m: Node A still warns; the
+  magnetometer is flagged only near the line and recovers afterwards, and the
+  heading falls back to the GPS course meanwhile;
+- `test_safety.py`, link-loss: RETURN_TO_HOME 3.0 to 3.3 s after the last
+  heartbeat, and the vehicle turns back (HLR-003);
+- `test_safety.py`, battery: RETURN_TO_HOME below 20 %, LAND below 10 %, and a
+  1 m/s descent (HLR-004).

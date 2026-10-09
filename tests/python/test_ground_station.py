@@ -79,6 +79,30 @@ def test_status_flags_raise_alarms() -> None:
     assert "GPS NO FIX" in names
 
 
+def test_onboard_safety_state_raises_alarms() -> None:
+    state = GroundState(ROUTE)
+    state.update(
+        packet(1, flight_mode="RETURN_TO_HOME", battery_pct=18, safety_flags=0x20 | 0x08 | 0x04),
+        now=1.0,
+    )
+    alarms = {a.name: a.severity for a in state.alarms(1.0)}
+    assert alarms == {
+        "RETURN TO HOME": "critical",
+        "VEHICLE LOST COMMAND LINK": "critical",
+        "BATTERY LOW": "warning",
+    }
+    state.update(packet(2, battery_pct=7, safety_flags=0x08 | 0x10 | 0x01 | 0x02), now=1.1)
+    names = [a.name for a in state.alarms(1.1)]
+    assert "BATTERY CRITICAL" in names and "BATTERY LOW" not in names
+    assert "AUTOPILOT SILENT" in names and "AVOIDING" in names
+
+
+def test_missing_safety_report_is_flagged() -> None:
+    state = GroundState(ROUTE)
+    state.update(packet(1, flight_mode=None), now=1.0)
+    assert [a.name for a in state.alarms(1.0)] == ["SAFETY STATE UNKNOWN"]
+
+
 def test_can_errors_alarm_when_counters_grow() -> None:
     state = GroundState(ROUTE)
     state.update(packet(1, can_lost=2), now=1.0)

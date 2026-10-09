@@ -28,6 +28,9 @@ void gps_poll(uint32_t now_ms);
  */
 bool gps_latest(nmea_fix_t *out, uint32_t now_ms);
 
+/** Milliseconds since the last position fix was received (UINT32_MAX if none yet). */
+uint32_t gps_fix_age_ms(uint32_t now_ms);
+
 /** Logs the sentences received in the last second, error counts and the fix. */
 void gps_report(uint32_t now_ms);
 

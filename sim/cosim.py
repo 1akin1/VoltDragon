@@ -28,6 +28,8 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
+from ground_station.command import frame
+from sim.plant.autopilot import MODES
 from sim.plant.plant import STEP_S as PLANT_STEP_S
 from sim.plant.plant import Plant, PlantStep
 
@@ -149,17 +151,30 @@ class CoSimulation:
 
     Accelerometer and gyroscope samples are queued in the sensor model two steps
     ahead, because the model hands them out one per firmware read. The
-    magnetometer value and the GPS sentences belong to the step about to run and
-    are applied just before it.
+    magnetometer value, the GPS sentences and the autopilot's status belong to the
+    step about to run and are applied just before it.
+
+    Node A's orders to the autopilot (its UART5 output) reach the plant through
+    a file that Renode writes as they are sent (@autopilot_path); they are read
+    after each step, so they act on the plant one to two steps later, like a
+    real link with a little latency.
+
+    The ground station's heartbeat, a PING once a second into Node B's command
+    UART, is sent while the time is below @heartbeat_until_s.
     """
 
     monitor: RenodeMonitor
     plant: Plant
     truth_path: Path | None = None
+    autopilot_path: Path | None = None
+    heartbeat_until_s: float = math.inf
 
     def __post_init__(self) -> None:
         self.time_s = 0.0
         self._pending: deque[list[PlantStep]] = deque()
+        self._autopilot_offset = 0
+        self._next_heartbeat_s = 1.0
+        self._heartbeat_seq = 0
         self._truth_file = None
         self._truth = None
         if self.truth_path is not None:
@@ -168,7 +183,8 @@ class CoSimulation:
             self._truth = csv.writer(self._truth_file)
             self._truth.writerow(
                 ["t", "east", "north", "up", "lat", "lon", "alt_msl", "heading_deg",
-                 "distance_to_line_m", "line_field_gauss", "field_gauss"]
+                 "distance_to_line_m", "line_field_gauss", "field_gauss", "s",
+                 "mode", "airborne", "battery_pct", "keep_out_m"]
             )
 
     def _plant_step_block(self) -> list[PlantStep]:
@@ -180,7 +196,30 @@ class CoSimulation:
         gps = "".join(s.gps.sentences for s in current if s.gps is not None)
         gps_hex = gps.encode("ascii").hex() if gps else "-"
         mag = _mag_text(current[len(current) // 2])
-        self.monitor.execute(f'plant_feed "{samples}" "{gps_hex}" "{mag}"')
+        status = "".join(s.autopilot_tx for s in current if s.autopilot_tx is not None)
+        status_hex = status.encode("ascii").hex() if status else "-"
+        self.monitor.execute(f'plant_feed "{samples}" "{gps_hex}" "{mag}" "{status_hex}"')
+
+    def _read_autopilot_orders(self) -> None:
+        """Passes what Node A sent to the autopilot since the last step to the plant."""
+        if self.autopilot_path is None or not self.autopilot_path.exists():
+            return
+        with self.autopilot_path.open("rb") as f:
+            f.seek(self._autopilot_offset)
+            data = f.read()
+        self._autopilot_offset += len(data)
+        if data:
+            self.plant.receive(data.decode("ascii", errors="replace"))
+
+    def _heartbeat(self) -> None:
+        if self.time_s + 1e-9 < self._next_heartbeat_s or self.time_s >= self.heartbeat_until_s:
+            return
+        self._next_heartbeat_s += 1.0
+        self._heartbeat_seq = self._heartbeat_seq % 65535 + 1
+        ping = (frame(self._heartbeat_seq, "PING") + "\r\n").encode("ascii").hex()
+        self.monitor.execute('mach set "node_b"')
+        self.monitor.execute(f'uart_write "sysbus.usart3" "{ping}"')
+        self.monitor.execute('mach set "node_a"')
 
     def _record(self, block: list[PlantStep]) -> None:
         if self._truth is None:
@@ -190,11 +229,14 @@ class CoSimulation:
             lat, lon, alt = self.plant.route.enu_to_geodetic(st.position)
             x_axis = st.attitude.c0
             heading = math.degrees(math.atan2(x_axis.x, x_axis.y)) % 360.0
+            keep_out = self.plant.autopilot.keep_out_m
             self._truth.writerow(
                 [f"{st.t:.3f}", f"{st.position.x:.2f}", f"{st.position.y:.2f}",
                  f"{st.position.z:.2f}", f"{lat:.7f}", f"{lon:.7f}", f"{alt:.2f}",
                  f"{heading:.2f}", f"{st.distance_to_line_m:.2f}",
-                 f"{s.imu.line_field_gauss:.4f}", f"{s.imu.mag_gauss.norm():.4f}"]
+                 f"{s.imu.line_field_gauss:.4f}", f"{s.imu.mag_gauss.norm():.4f}",
+                 f"{st.s_m:.2f}", MODES.index(st.mode), int(st.airborne),
+                 f"{self.plant.battery.pct:.2f}", f"{keep_out or 0.0:.1f}"]
             )
 
     def start(self) -> None:
@@ -212,8 +254,10 @@ class CoSimulation:
         upcoming = self._plant_step_block()
         self._pending.append(upcoming)
         self._feed(upcoming, current)
+        self._heartbeat()
         self.monitor.execute(f'emulation RunFor "{STEP_S}"')
         self.time_s += STEP_S
+        self._read_autopilot_orders()
         self._record(current)
 
     def close(self) -> None:

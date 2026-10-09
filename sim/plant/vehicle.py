@@ -9,6 +9,12 @@ A multirotor tilts its thrust to accelerate, so the body z axis points along
 the specific force (acceleration minus gravity) and the nose follows the route
 direction with a lag. Body axes are x forward, y left, z up (FLU); world axes
 are East, North, Up (ENU).
+
+The autopilot (sim/plant/autopilot.py) decides what the desired point does:
+MISSION moves it along the route, HOLD stops it, RTH moves it back to the start
+at the plan's normal offset, and LAND lowers it to the ground at 1 m/s where the
+vehicle is. An active keep-out pushes it away from the line until it is at least
+that far from every conductor.
 """
 
 from __future__ import annotations
@@ -17,6 +23,7 @@ import math
 import random
 from dataclasses import dataclass, field
 
+from sim.plant.autopilot import Autopilot
 from sim.plant.route import Route
 from sim.plant.vec import ZERO, Mat3, Vec3, body_rates
 
@@ -83,6 +90,8 @@ class VehicleState:
     s_m: float                  # along-track position of the desired point
     distance_to_line_m: float   # to the nearest conductor
     wind: Vec3
+    mode: str = "MISSION"       # what the vehicle is flying (the autopilot's mode)
+    airborne: bool = True
 
 
 class Vehicle:
@@ -93,13 +102,23 @@ class Vehicle:
     YAW_TAU_S = 1.5
     ATTITUDE_TAU_S = 0.2
     MAX_ACCEL_MPS2 = 3.0          # about 17 degrees of tilt
+    LAND_SPEED_MPS = 1.0
+    MAX_EXTRA_OFFSET_M = 60.0     # search range for the keep-out
 
-    def __init__(self, route: Route, plan: FlightPlan, wind: Wind) -> None:
+    def __init__(
+        self, route: Route, plan: FlightPlan, wind: Wind, autopilot: Autopilot | None = None
+    ) -> None:
         self.route = route
         self.plan = plan
         self.wind = wind
+        self.autopilot = autopilot
         self.t = 0.0
         self.s = plan.start_s_m
+        self.mode = "MISSION"
+        self.airborne = True
+        self.offset = plan.offset_at(self.s)
+        self.land_point = ZERO
+        self.land_t = 0.0
         self.position = self._desired(self.s)
         self.velocity = ZERO
         _, direction = route.point_at(self.s)
@@ -108,9 +127,12 @@ class Vehicle:
         self.attitude = self._attitude(self.thrust_axis)
 
     def _desired(self, s: float) -> Vec3:
+        return self._point(s, self.plan.offset_at(s))
+
+    def _point(self, s: float, offset: float) -> Vec3:
         ground, direction = self.route.point_at(s)
         right = Vec3(direction.y, -direction.x, 0.0)
-        return ground + right * self.plan.offset_at(s) + Vec3(0.0, 0.0, self.plan.altitude_m)
+        return ground + right * offset + Vec3(0.0, 0.0, self.plan.altitude_m)
 
     def _attitude(self, specific_force: Vec3) -> Mat3:
         z_b = specific_force.unit()
@@ -119,15 +141,79 @@ class Vehicle:
         x_b = y_b.cross(z_b)
         return Mat3.from_columns(x_b, y_b, z_b)
 
+    def _respect_keep_out(self, s: float, offset: float) -> float:
+        """The offset, moved away from the line until the point respects the keep-out."""
+        keep_out = self.autopilot.keep_out_m if self.autopilot is not None else None
+        if keep_out is None:
+            return offset
+        if self.route.distance_to_conductors(self._point(s, offset)) >= keep_out:
+            return offset
+        lo, hi = offset, offset + self.MAX_EXTRA_OFFSET_M
+        for _ in range(30):
+            mid = (lo + hi) / 2.0
+            if self.route.distance_to_conductors(self._point(s, mid)) < keep_out:
+                lo = mid
+            else:
+                hi = mid
+        return hi
+
+    def _change_mode(self, mode: str) -> None:
+        if mode == "LAND":
+            self.land_point = self.position
+            self.land_t = self.t
+        self.mode = mode
+
+    def _guidance(self, dt: float) -> tuple[Vec3, Vec3, Vec3]:
+        """Moves the desired point for the current mode.
+
+        Returns the desired point, the feed-forward velocity and the direction of travel.
+        """
+        if self.mode == "LAND":
+            elapsed = self.t + dt - self.land_t
+            altitude = max(0.0, self.land_point.z - self.LAND_SPEED_MPS * elapsed)
+            target = Vec3(self.land_point.x, self.land_point.y, altitude)
+            sink = Vec3(0.0, 0.0, -self.LAND_SPEED_MPS if altitude > 0.0 else 0.0)
+            return target, sink, ZERO
+
+        if self.mode == "MISSION":
+            # The vehicle starts in a hover and builds up to cruise speed gradually.
+            speed = self.plan.speed_mps * min(1.0, (self.t + dt) / self.plan.speed_ramp_s)
+            self.s = min(self.s + speed * dt, self.route.length())
+            plan_offset = self.plan.offset_at(self.s)
+            along = 1.0
+        elif self.mode == "RTH":
+            # Back along the route to the start, at the plan's normal offset.
+            speed = self.plan.speed_mps if self.s > self.plan.start_s_m else 0.0
+            self.s = max(self.s - speed * dt, self.plan.start_s_m)
+            plan_offset = self.plan.offset_m
+            along = -1.0
+        else:
+            # HOLD: the desired point stays where it is.
+            speed = 0.0
+            plan_offset = self.offset
+            along = 1.0
+
+        if self.autopilot is not None:
+            self.autopilot.release_keep_out(
+                self.route.distance_to_conductors(self._point(self.s, plan_offset))
+            )
+        self.offset = self._respect_keep_out(self.s, plan_offset)
+        _, direction = self.route.point_at(self.s)
+        travel = direction * along
+        return self._point(self.s, self.offset), travel * speed, travel
+
     def step(self, dt: float) -> VehicleState:
         wind = self.wind.step(dt)
-        # The vehicle starts in a hover and builds up to cruise speed gradually.
-        speed = self.plan.speed_mps * min(1.0, (self.t + dt) / self.plan.speed_ramp_s)
-        self.s = min(self.s + speed * dt, self.route.length())
-        target = self._desired(self.s)
-        _, direction = self.route.point_at(self.s)
+        mode = self.autopilot.mode if self.autopilot is not None else "MISSION"
+        # LAND is final for the vehicle too: once down, or going down, it stays.
+        if mode != self.mode and self.mode != "LAND":
+            self._change_mode(mode)
 
-        velocity_cmd = direction * speed + (target - self.position) * self.K_POSITION
+        if not self.airborne:
+            return self._state(dt, ZERO, wind, self.attitude)
+
+        target, feed_forward, travel = self._guidance(dt)
+        velocity_cmd = feed_forward + (target - self.position) * self.K_POSITION
         accel = (velocity_cmd - self.velocity) * self.K_VELOCITY
         # The controller limits its tilt, so the commanded horizontal acceleration is capped.
         horizontal = math.hypot(accel.x, accel.y)
@@ -139,10 +225,22 @@ class Vehicle:
         self.velocity = self.velocity + accel * dt
         self.position = self.position + self.velocity * dt
 
-        # The nose follows the route direction with a first-order lag (shortest way round).
-        target_yaw = math.atan2(direction.y, direction.x)
-        error = math.atan2(math.sin(target_yaw - self.yaw), math.cos(target_yaw - self.yaw))
-        self.yaw += error * (1.0 - math.exp(-dt / self.YAW_TAU_S))
+        if self.mode == "LAND" and target.z == 0.0 and self.position.z <= 0.05:
+            # Touchdown: the motors stop and the vehicle rests on the ground.
+            self.position = Vec3(self.position.x, self.position.y, 0.0)
+            self.velocity = ZERO
+            self.airborne = False
+            self.thrust_axis = Vec3(0.0, 0.0, GRAVITY)
+            previous = self.attitude
+            self.attitude = self._attitude(self.thrust_axis)
+            return self._state(dt, ZERO, wind, previous)
+
+        # The nose follows the direction of travel with a first-order lag (shortest way
+        # round); hovering and landing keep the current heading.
+        if travel.norm() > 0.0:
+            target_yaw = math.atan2(travel.y, travel.x)
+            error = math.atan2(math.sin(target_yaw - self.yaw), math.cos(target_yaw - self.yaw))
+            self.yaw += error * (1.0 - math.exp(-dt / self.YAW_TAU_S))
 
         specific_force = accel + Vec3(0.0, 0.0, GRAVITY)
         # The attitude loop cannot tilt instantly: the thrust axis follows the
@@ -151,8 +249,12 @@ class Vehicle:
         self.thrust_axis = (self.thrust_axis + (specific_force - self.thrust_axis) * blend)
         previous = self.attitude
         self.attitude = self._attitude(self.thrust_axis)
-        self.t += dt
+        return self._state(dt, accel, wind, previous)
 
+    def _state(self, dt: float, accel: Vec3, wind: Vec3, previous: Mat3) -> VehicleState:
+        """Advances time and reports the state; at rest the accelerometer reads gravity only."""
+        self.t += dt
+        specific_force = accel + Vec3(0.0, 0.0, GRAVITY)
         return VehicleState(
             t=self.t,
             position=self.position,
@@ -163,4 +265,6 @@ class Vehicle:
             s_m=self.s,
             distance_to_line_m=self.route.distance_to_conductors(self.position),
             wind=wind,
+            mode=self.mode,
+            airborne=self.airborne,
         )

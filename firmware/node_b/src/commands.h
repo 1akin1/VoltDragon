@@ -9,6 +9,10 @@
  *   STATUS            uptime_ms, reset_count, commands_accepted, commands_rejected
  *   TLM_RATE [hz]     query or set the telemetry rate, 10..50 Hz
  *   CAN               valid, rejected, lost, unknown_id, age_ms of Node A data ('-' if none)
+ *   MODE <m> [OVERRIDE]  request flight mode MISSION, HOLD, RTH or LAND (HLR-005, HLR-006)
+ *
+ * Every intact command counts as ground station contact for the link-loss
+ * check (HLR-003); the ground station sends PING once a second as a heartbeat.
  */
 #ifndef COMMANDS_H
 #define COMMANDS_H

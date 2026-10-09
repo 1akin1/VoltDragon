@@ -28,8 +28,8 @@ ${ROOT}             ${CURDIR}/../..
 ${ELF_A}            ${ROOT}/build/debug/firmware/node_a/node_a.elf
 ${ELF_B}            ${ROOT}/build/debug/firmware/node_b/node_b.elf
 # Broadcast from Node B (02:00:00:56:44:02) to port 5600: Ethernet, IPv4 (UDP, 108 bytes,
-# 192.168.10.2 -> 192.168.10.255) and UDP (88 bytes), then "VDTM", version 2, any flags, length 80.
-${TELEMETRY_FRAME}  ffffffffffff02000056440208004500006c____0000ff11____c0a80a02c0a80aff____15e00058____5644544d02__5000
+# 192.168.10.2 -> 192.168.10.255) and UDP (96 bytes), then "VDTM", version 3, any flags, length 88.
+${TELEMETRY_FRAME}  ffffffffffff020000564402080045000074____0000ff11____c0a80a02c0a80aff____15e00060____5644544d03__5800
 
 
 *** Keywords ***
@@ -97,7 +97,14 @@ Should Flag Fresh Node A Data
     Wait For Node B    heartbeat 1
     # Flags (frame offset 47): Node A data fresh, IMU valid, recorder OK. No GPS here,
     # and the magnetometer model reads zero, so GPS fix and magnetometer OK are clear.
-    Wait For Frame    5644544d0207    42
+    Wait For Frame    5644544d0307    42
+
+Should Carry Node A Safety State
+    Create System
+    Wait For Node B    heartbeat 1
+    # Payload offset 74 (frame offset 116): distance unknown (no GPS), battery unknown
+    # (no autopilot), mode MISSION, no safety flags set.
+    Wait For Frame    ffffff0000    116
 
 Should Change The Telemetry Rate On Command
     Create System

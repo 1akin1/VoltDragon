@@ -20,6 +20,9 @@
  * The inter-node bus is CAN1 on PB8 (RX) / PB9 (TX) at 500 kbit/s. Real hardware
  * needs a CAN transceiver and 120 ohm termination at both ends of the bus.
  *
+ * Node A's GPS receiver is on UART4 (PC10 TX / PC11 RX, 9600 baud) and its
+ * autopilot link on UART5 (PC12 TX / PD2 RX, 115200 baud).
+ *
  * The flight-data flash is on SPI1: PA5 (SCK), PA6 (MISO), PA7 (MOSI), with a
  * software-driven chip select on PA4 (active low). APB2 runs at 16 MHz, so the
  * SPI prescaler /2 gives an 8 MHz clock.
@@ -43,6 +46,9 @@
 #define BOARD_GPS_UART      (UART4)
 #define BOARD_GPS_IRQN      (UART4_IRQN)
 #define BOARD_GPS_BAUD      (9600UL)
+#define BOARD_AP_UART       (UART5)
+#define BOARD_AP_IRQN       (UART5_IRQN)
+#define BOARD_AP_BAUD       (115200UL)
 #define BOARD_SENSOR_I2C    (I2C1)
 #define BOARD_SENSOR_I2C_HZ (100000UL)
 #define BOARD_CAN           (CAN1)
@@ -69,6 +75,9 @@ void board_command_uart_init(void);
 
 /** Enables the clock and configures the pins of Node A's GPS receiver UART (UART4, PC10/PC11). */
 void board_gps_uart_init(void);
+
+/** Enables the clock and configures the pins of Node A's autopilot UART (UART5, PC12/PD2). */
+void board_autopilot_uart_init(void);
 
 /** Enables the clock and configures the pins of the inter-node CAN bus. */
 void board_can_init(void);

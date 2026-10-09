@@ -37,7 +37,9 @@ def format_packet(t: Telemetry) -> str:
         f"A age {t.node_a_age_ms:5} ms  [{flags}]  "
         f"pos {t.lat_deg:.6f} {t.lon_deg:.6f} {t.alt_msl_m:.1f} m  "
         f"hdg {t.heading_deg:6.2f} ({t.heading_source})  field {t.field_mgauss} mG  "
-        f"can ok/bad/lost {t.can_valid}/{t.can_rejected}/{t.can_lost}"
+        f"can ok/bad/lost {t.can_valid}/{t.can_rejected}/{t.can_lost}  "
+        f"{t.flight_mode or '?'} batt {'?' if t.battery_pct is None else t.battery_pct}% "
+        f"safety 0x{t.safety_flags:02X}"
     )
 
 

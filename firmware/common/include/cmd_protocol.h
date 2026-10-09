@@ -34,7 +34,8 @@ typedef enum
     CMD_ERR_SEQ,        /**< Sequence number missing or outside 1..65535. */
     CMD_ERR_LENGTH,     /**< Line longer than CMD_LINE_MAX. */
     CMD_ERR_UNKNOWN,    /**< Unknown verb. */
-    CMD_ERR_ARGS        /**< Wrong number of arguments or an invalid argument value. */
+    CMD_ERR_ARGS,       /**< Wrong number of arguments or an invalid argument value. */
+    CMD_ERR_REFUSED     /**< Valid, but not allowed in the current state (e.g. a mode change). */
 } cmd_error_t;
 
 /** Line assembler state. */

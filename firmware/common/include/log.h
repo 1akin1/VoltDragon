@@ -19,6 +19,15 @@
 /** Selects the UART used for log output. Must be called before logging. */
 void log_init(usart_regs_t *uart);
 
+typedef void (*log_lock_fn_t)(void);
+
+/**
+ * Installs functions that serialise log_line() between tasks. Without them
+ * (bare metal) lines are written unlocked. The functions must do nothing when
+ * called from an interrupt or exception handler, so fault reports never block.
+ */
+void log_set_lock(log_lock_fn_t lock, log_lock_fn_t unlock);
+
 /** Writes a formatted line: "[ssssss.mmm] L <message>\r\n". */
 void log_line(char level, const char *fmt, ...) __attribute__((format(printf, 2, 3)));
 

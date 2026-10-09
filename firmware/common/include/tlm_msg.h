@@ -2,7 +2,7 @@
  * @file tlm_msg.h
  * @brief Telemetry packet sent by Node B to the ground station over UDP (HLR-012, HLR-013).
  *
- * Fixed 80-byte little-endian packet, version 2 (see docs/telemetry.md):
+ * Fixed 88-byte little-endian packet, version 3 (see docs/telemetry.md):
  *
  *     0  "VDTM" magic          42  GPS satellites
  *     4  version (2)           43  GPS fix quality
@@ -16,8 +16,14 @@
  *    22  Node A data age ms    68  magnetic field, mgauss
  *    24  accel X/Y/Z, mg       70  ground speed, dm/s
  *    30  gyro X/Y/Z, 10 mdps   72  GPS data age ms
- *    36  mag X/Y/Z, mgauss     74  reserved (0)
- *                              76  CRC-32 of bytes 0..75
+ *    36  mag X/Y/Z, mgauss     74  distance to conductor, dm
+ *                              76  battery, %
+ *                              77  flight mode
+ *                              78  safety flags (CAN SAFETY)
+ *                              79  last mode request id
+ *                              80  ground link age ms
+ *                              82  reserved (0)
+ *                              84  CRC-32 of bytes 0..83
  *
  * No hardware dependencies; unit-tested on the host (tests/unit).
  */
@@ -28,8 +34,10 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define TLM_PACKET_LEN          (80U)
-#define TLM_VERSION             (2U)
+#define TLM_PACKET_LEN          (88U)
+#define TLM_VERSION             (3U)
+#define TLM_UNKNOWN_U8          (0xFFU)     /**< Battery or mode not known. */
+#define TLM_UNKNOWN_U16         (0xFFFFU)   /**< Distance not known; ages saturate here. */
 
 #define TLM_FLAG_NODE_A_FRESH   (0x01U)     /**< Node A data younger than TLM_FRESH_MS. */
 #define TLM_FLAG_IMU_VALID      (0x02U)
@@ -65,6 +73,12 @@ typedef struct
     uint16_t field_mgauss;
     uint16_t speed_dmps;
     uint16_t gps_age_ms;        /**< Saturates at 65535. */
+    uint16_t distance_dm;       /**< Onboard distance to the nearest conductor; TLM_UNKNOWN_U16. */
+    uint8_t  battery_pct;       /**< TLM_UNKNOWN_U8 if the autopilot is silent. */
+    uint8_t  flight_mode;       /**< flight_mode_t; TLM_UNKNOWN_U8 before Node A reports it. */
+    uint8_t  safety_flags;      /**< CANMSG_SAFETY_* as Node A sent them. */
+    uint8_t  last_request_id;   /**< Last operator mode request Node A processed. */
+    uint16_t ground_link_age_ms; /**< Since the last ground station command; saturates. */
 } tlm_packet_t;
 
 /** Serialises a packet. Returns TLM_PACKET_LEN, or 0 if @p size is too small. */

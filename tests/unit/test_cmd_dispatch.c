@@ -12,30 +12,39 @@ UNIT_MAIN_DEFINITIONS;
 
 static int s_ping_calls;
 
-static bool handle_ping(const cmd_request_t *req, cmd_response_t *rsp)
+static cmd_error_t handle_ping(const cmd_request_t *req, cmd_response_t *rsp)
 {
     (void)req;
     (void)rsp;
     s_ping_calls++;
-    return true;
+    return CMD_OK;
 }
 
 /* SET <value>: accepts 1..9 and echoes the value. */
-static bool handle_set(const cmd_request_t *req, cmd_response_t *rsp)
+static cmd_error_t handle_set(const cmd_request_t *req, cmd_response_t *rsp)
 {
     uint32_t value = 0U;
 
     if (!cmd_parse_u32(req->args[0], &value) || (value < 1U) || (value > 9U))
     {
-        return false;
+        return CMD_ERR_ARGS;
     }
     cmd_response_add_u32(rsp, value);
-    return true;
+    return CMD_OK;
+}
+
+/* ARM: never allowed in this test, to exercise CMD_ERR_REFUSED. */
+static cmd_error_t handle_arm(const cmd_request_t *req, cmd_response_t *rsp)
+{
+    (void)req;
+    cmd_response_add(rsp, "ignored");
+    return CMD_ERR_REFUSED;
 }
 
 static const cmd_entry_t s_table[] = {
     { "PING", 0U, 0U, handle_ping },
     { "SET", 1U, 1U, handle_set },
+    { "ARM", 0U, 0U, handle_arm },
 };
 
 static const char *frame(const char *body)
@@ -121,6 +130,14 @@ static void rejects_argument_refused_by_handler(void)
     CHECK_STR(body_of(&s_rsp), "$8,NAK,SET,ARGS");
 }
 
+static void refused_request_gets_a_clean_nak(void)
+{
+    setup();
+    CHECK_EQ(dispatch("20,ARM").error, CMD_ERR_REFUSED);
+    /* Fields the handler added before refusing are not sent. */
+    CHECK_STR(body_of(&s_rsp), "$20,NAK,ARM,REFUSED");
+}
+
 static void rejects_corrupt_frames_with_unknown_sequence(void)
 {
     setup();
@@ -165,6 +182,17 @@ static void corrupt_frame_does_not_disturb_replay_cache(void)
     CHECK_EQ(s_ping_calls, 1);
 }
 
+static void different_request_with_same_sequence_is_executed(void)
+{
+    setup();
+    CHECK_EQ(dispatch("15,PING").error, CMD_OK);
+    /* Another sender happened to pick the same number: not a retransmission. */
+    const cmd_outcome_t out = dispatch("15,SET,4");
+    CHECK(!out.replayed);
+    CHECK_EQ(out.error, CMD_OK);
+    CHECK_STR(body_of(&s_rsp), "$15,ACK,SET,4");
+}
+
 static void new_sequence_number_executes_again(void)
 {
     setup();
@@ -182,10 +210,12 @@ int main(void)
     RUN(rejects_overlong_verb_without_echoing_it);
     RUN(rejects_wrong_argument_count);
     RUN(rejects_argument_refused_by_handler);
+    RUN(refused_request_gets_a_clean_nak);
     RUN(rejects_corrupt_frames_with_unknown_sequence);
     RUN(replays_response_for_retransmitted_request);
     RUN(replays_nak_with_original_reason);
     RUN(corrupt_frame_does_not_disturb_replay_cache);
+    RUN(different_request_with_same_sequence_is_executed);
     RUN(new_sequence_number_executes_again);
     return (unit_failures == 0) ? 0 : 1;
 }

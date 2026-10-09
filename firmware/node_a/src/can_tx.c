@@ -12,6 +12,7 @@
 #include "log.h"
 #include "nav.h"
 #include "reset_info.h"
+#include "safety.h"
 
 /* Outside Node B's acceptance range 0x100..0x10F. */
 #define FOREIGN_ID          (0x300U)
@@ -29,20 +30,23 @@ typedef enum
     MSG_GPS_LAT,
     MSG_GPS_LON,
     MSG_NAV,
+    MSG_SAFETY,
     MSG_COUNT,
     MSG_IDLE = MSG_COUNT
 } message_t;
 
 static const uint16_t s_ids[MSG_COUNT] = {
     CANMSG_ID_A_STATUS, CANMSG_ID_A_ACCEL, CANMSG_ID_A_GYRO, CANMSG_ID_A_MAG,
-    CANMSG_ID_A_GPS_LAT, CANMSG_ID_A_GPS_LON, CANMSG_ID_A_NAV
+    CANMSG_ID_A_GPS_LAT, CANMSG_ID_A_GPS_LON, CANMSG_ID_A_NAV, CANMSG_ID_A_SAFETY
 };
 
 /* One slot every CAN_TX_SLOT_MS; the schedule repeats every CAN_TX_PERIOD_MS. */
 static const message_t s_schedule[CAN_TX_SLOTS] = {
     MSG_STATUS, MSG_ACCEL, MSG_GYRO, MSG_MAG, MSG_GPS_LAT, MSG_GPS_LON, MSG_NAV,
-    MSG_IDLE, MSG_IDLE, MSG_IDLE
+    MSG_SAFETY, MSG_IDLE, MSG_IDLE
 };
+
+#define NODE_B_FILTER_BANK  (0U)
 
 typedef struct
 {
@@ -52,6 +56,8 @@ typedef struct
     uint8_t        seq[MSG_COUNT];
     can_tx_fault_t fault;
     uint32_t       last_queued;
+    uint32_t       rx_valid;
+    uint32_t       rx_rejected;
 } can_tx_state_t;
 
 static can_tx_state_t s_tx;
@@ -145,6 +151,14 @@ static void send_message(message_t msg, uint32_t now_ms)
         case MSG_NAV:
             encode_nav(payload, gps_fix, &fix);
             break;
+        case MSG_SAFETY:
+        {
+            const safety_state_t state = safety_state();
+            canmsg_safety_t safety;
+            safety_to_message(&state, &safety);
+            canmsg_encode_safety(payload, &safety);
+            break;
+        }
         case MSG_ACCEL:
         case MSG_GYRO:
         case MSG_MAG:
@@ -192,15 +206,49 @@ bool can_tx_init(void)
 {
     s_tx = (can_tx_state_t){ 0 };
 
-    if (!can_init())
+    if (!can_init() ||
+        !can_add_filter(NODE_B_FILTER_BANK, CANMSG_NODE_B_ID_BASE, CANMSG_NODE_B_ID_MASK))
     {
         LOG_ERROR("can: controller did not start, running without CAN");
         return false;
     }
     s_tx.ready = true;
-    LOG_INFO("can: 500 kbit/s, one slot every %lu ms, each message every %lu ms",
-             CAN_TX_SLOT_MS, CAN_TX_PERIOD_MS);
+    LOG_INFO("can: 500 kbit/s, one slot every %lu ms, each message every %lu ms; "
+             "accepting 0x%03X..0x%03X from Node B", CAN_TX_SLOT_MS, CAN_TX_PERIOD_MS,
+             CANMSG_NODE_B_ID_BASE, CANMSG_NODE_B_ID_BASE | (~CANMSG_NODE_B_ID_MASK & CAN_STD_ID_MAX));
     return true;
+}
+
+/** Node B's frames: ground-link status and operator mode requests, for the safety logic. */
+static void receive(uint32_t now_ms)
+{
+    can_frame_t frame;
+
+    while (can_receive(&frame))
+    {
+        if (!canmsg_valid(&frame))
+        {
+            s_tx.rx_rejected++;
+        }
+        else if (frame.id == CANMSG_ID_B_STATUS)
+        {
+            canmsg_b_status_t status;
+            canmsg_decode_b_status(frame.data, &status);
+            safety_on_ground_status(&status, now_ms);
+            s_tx.rx_valid++;
+        }
+        else if (frame.id == CANMSG_ID_B_MODE_REQ)
+        {
+            canmsg_mode_req_t request;
+            canmsg_decode_mode_req(frame.data, &request);
+            safety_on_mode_request(&request);
+            s_tx.rx_valid++;
+        }
+        else
+        {
+            s_tx.rx_rejected++;
+        }
+    }
 }
 
 void can_tx_poll(uint32_t now_ms)
@@ -209,6 +257,7 @@ void can_tx_poll(uint32_t now_ms)
     {
         return;
     }
+    receive(now_ms);
     can_poll();
 
     /* Signed difference handles counter wrap-around. */
@@ -234,7 +283,8 @@ void can_tx_report(void)
     }
 
     const can_stats_t stats = can_stats();
-    LOG_INFO("can: tx %lu/s, dropped %lu, tec %u%s", stats.tx_queued - s_tx.last_queued,
-             stats.tx_dropped, (unsigned int)stats.tx_errors, stats.bus_off ? ", BUS OFF" : "");
+    LOG_INFO("can: tx %lu/s, dropped %lu, tec %u%s; rx from Node B %lu, rejected %lu",
+             stats.tx_queued - s_tx.last_queued, stats.tx_dropped, (unsigned int)stats.tx_errors,
+             stats.bus_off ? ", BUS OFF" : "", s_tx.rx_valid, s_tx.rx_rejected);
     s_tx.last_queued = stats.tx_queued;
 }

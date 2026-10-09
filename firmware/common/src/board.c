@@ -24,6 +24,8 @@
 #define GPIO_AF8_UART4  (8UL)
 #define GPS_TX_PIN      (10U)
 #define GPS_RX_PIN      (11U)
+#define AP_TX_PIN       (12U)   /* PC12 */
+#define AP_RX_PIN       (2U)    /* PD2 */
 #define GPIO_AF9_CAN    (9UL)
 #define GPIO_AF11_ETH   (11UL)
 
@@ -79,6 +81,16 @@ void board_gps_uart_init(void)
 
     gpio_set_alternate(GPIOC, GPS_TX_PIN, GPIO_AF8_UART4);
     gpio_set_alternate(GPIOC, GPS_RX_PIN, GPIO_AF8_UART4);
+}
+
+void board_autopilot_uart_init(void)
+{
+    RCC->AHB1ENR |= RCC_AHB1ENR_GPIOCEN | RCC_AHB1ENR_GPIODEN;
+    RCC->APB1ENR |= RCC_APB1ENR_UART5EN;
+    (void)RCC->APB1ENR;
+
+    gpio_set_alternate(GPIOC, AP_TX_PIN, GPIO_AF8_UART4);   /* AF8 serves UART4/5 and USART6 */
+    gpio_set_alternate(GPIOD, AP_RX_PIN, GPIO_AF8_UART4);
 }
 
 void board_command_uart_init(void)

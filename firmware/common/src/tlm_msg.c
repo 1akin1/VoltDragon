@@ -9,7 +9,7 @@
 #include "crc32.h"
 
 #define GYRO_DIVISOR    (10)
-#define CRC_OFFSET      (76U)
+#define CRC_OFFSET      (84U)
 #define AXES            (3U)
 
 static const uint8_t MAGIC[4] = { 'V', 'D', 'T', 'M' };
@@ -92,7 +92,13 @@ size_t tlm_encode(const tlm_packet_t *packet, uint8_t *out, size_t size)
     put_u16(&out[68], packet->field_mgauss);
     put_u16(&out[70], packet->speed_dmps);
     put_u16(&out[72], packet->gps_age_ms);
-    /* Bytes 74..75 are reserved and stay zero. */
+    put_u16(&out[74], packet->distance_dm);
+    out[76] = packet->battery_pct;
+    out[77] = packet->flight_mode;
+    out[78] = packet->safety_flags;
+    out[79] = packet->last_request_id;
+    put_u16(&out[80], packet->ground_link_age_ms);
+    /* Bytes 82..83 are reserved and stay zero. */
     put_u32(&out[CRC_OFFSET], crc32(out, CRC_OFFSET));
     return TLM_PACKET_LEN;
 }
@@ -128,5 +134,11 @@ bool tlm_decode(const uint8_t *in, size_t len, tlm_packet_t *packet)
     packet->field_mgauss = (uint16_t)get_u16(&in[68]);
     packet->speed_dmps = (uint16_t)get_u16(&in[70]);
     packet->gps_age_ms = (uint16_t)get_u16(&in[72]);
+    packet->distance_dm = (uint16_t)get_u16(&in[74]);
+    packet->battery_pct = in[76];
+    packet->flight_mode = in[77];
+    packet->safety_flags = in[78];
+    packet->last_request_id = in[79];
+    packet->ground_link_age_ms = (uint16_t)get_u16(&in[80]);
     return true;
 }

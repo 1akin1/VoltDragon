@@ -4,7 +4,9 @@ Pure logic, independent of any display, so it is unit-tested directly.
 
 The proximity alarms use the GPS position from telemetry and the route's
 conductor geometry: the ground station's own check of HLR-001/HLR-002. The
-vehicle's on-board safety logic (Phase 4) does not depend on it.
+vehicle's on-board safety logic does not depend on it; its decisions (mode,
+avoidance, link loss, battery) arrive in the safety fields of telemetry and are
+shown as alarms of their own.
 """
 
 from __future__ import annotations
@@ -132,6 +134,7 @@ class GroundState:
                     f"field {t.field_mgauss} mG, heading from {t.heading_source}",
                 )
             )
+        found.extend(_onboard_alarms(t))
         if not t.recorder_ok:
             found.append(Alarm("RECORDER OFF", "warning", "flight data not being recorded"))
 
@@ -147,3 +150,32 @@ class GroundState:
 
         found.sort(key=lambda a: a.severity != "critical")
         return found
+
+
+def _onboard_alarms(t: Telemetry) -> list[Alarm]:
+    """Alarms raised from Node A's own safety state."""
+    if t.flight_mode is None:
+        if t.node_a_fresh:
+            return [Alarm("SAFETY STATE UNKNOWN", "warning", "no safety report from Node A")]
+        return []
+
+    found: list[Alarm] = []
+    if t.flight_mode in ("RETURN_TO_HOME", "LAND"):
+        found.append(Alarm(t.flight_mode.replace("_", " "), "critical", "vehicle mode"))
+    elif t.flight_mode == "HOLD":
+        found.append(Alarm("HOLD", "warning", "vehicle holding position"))
+    if t.link_lost:
+        found.append(
+            Alarm("VEHICLE LOST COMMAND LINK", "critical",
+                  f"ground link age {t.ground_link_age_ms} ms at Node B")
+        )
+    if t.battery_critical:
+        found.append(Alarm("BATTERY CRITICAL", "critical", f"{t.battery_pct} %"))
+    elif t.battery_low:
+        found.append(Alarm("BATTERY LOW", "warning", f"{t.battery_pct} %"))
+    if not t.autopilot_ok:
+        found.append(Alarm("AUTOPILOT SILENT", "critical", "no status from the autopilot"))
+    if t.proximity:
+        distance = "unknown" if t.distance_m is None else f"{t.distance_m:.1f} m"
+        found.append(Alarm("AVOIDING", "warning", f"on-board distance {distance}"))
+    return found

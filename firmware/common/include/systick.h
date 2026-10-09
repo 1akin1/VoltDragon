@@ -16,4 +16,11 @@ uint32_t systick_now_ms(void);
 /** Busy-waits for at least @p ms milliseconds. */
 void systick_delay_ms(uint32_t ms);
 
+/**
+ * Called from the SysTick interrupt after the millisecond count is updated.
+ * The default does nothing; a node running an RTOS overrides it to drive the
+ * RTOS tick from the same timer.
+ */
+void systick_hook(void);
+
 #endif /* SYSTICK_H */

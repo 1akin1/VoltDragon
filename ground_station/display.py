@@ -6,6 +6,9 @@ Usage:
     python -m ground_station.display --replay flight.tlm   play a recording back
     ... --snapshot view.png [--duration 60]                 save an image instead of a window
 
+With live data the display also sends Node B a PING heartbeat once a second
+(--target, or --no-heartbeat to stay silent and let the vehicle see link loss).
+
 The map shows the route's pylons and conductors, the vehicle's track (red
 where the magnetometer was disturbed) and its current position and heading.
 """
@@ -19,6 +22,7 @@ import struct
 import time
 from pathlib import Path
 
+from ground_station.command import DEFAULT_TARGET, Heartbeat
 from ground_station.state import (
     FIELD_EXPECTED_MG,
     FIELD_TOLERANCE,
@@ -176,9 +180,13 @@ class Display:
             f"speed {t.speed_mps:.1f} m/s",
             f"CAN valid/rejected/lost {t.can_valid}/{t.can_rejected}/{t.can_lost}   "
             f"Node A age {t.node_a_age_ms} ms",
+            f"mode {t.flight_mode or '?'}   battery "
+            f"{'?' if t.battery_pct is None else t.battery_pct} %   on-board distance "
+            f"{'?' if t.distance_m is None else f'{t.distance_m:.1f}'} m   "
+            f"request {t.last_request_id}",
         ]
         for i, line in enumerate(lines):
-            self.ax_status.text(0.0, 0.85 - 0.22 * i, line, fontsize=9.5, family="monospace",
+            self.ax_status.text(0.0, 0.88 - 0.19 * i, line, fontsize=9.5, family="monospace",
                                 transform=self.ax_status.transAxes)
 
     def save(self, path: Path) -> None:
@@ -206,6 +214,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--snapshot", type=Path, help="save an image instead of opening a window")
     parser.add_argument("--duration", type=float, default=30.0,
                         help="with --snapshot and live data: seconds to listen")
+    parser.add_argument("--target", default=DEFAULT_TARGET, help="Node B address for the heartbeat")
+    parser.add_argument("--no-heartbeat", action="store_true",
+                        help="do not send the 1 Hz PING heartbeat")
     args = parser.parse_args(argv)
 
     display = Display(Route.load(args.route), headless=args.snapshot is not None)
@@ -224,8 +235,11 @@ def main(argv: list[str] | None = None) -> int:
     sock.bind(("", args.port))
     sock.setblocking(False)
     record = args.record.open("ab") if args.record else None
+    heartbeat = None if args.no_heartbeat else Heartbeat(args.target)
 
     def poll() -> None:
+        if heartbeat is not None:
+            heartbeat.poll(time.monotonic())
         while True:
             try:
                 datagram = sock.recv(2048)
@@ -259,6 +273,8 @@ def main(argv: list[str] | None = None) -> int:
             display.plt.show()
     finally:
         sock.close()
+        if heartbeat is not None:
+            heartbeat.close()
         if record is not None:
             record.close()
     return 0

@@ -12,6 +12,9 @@
  * it. No call waits for the flash, so erase times never stall the loop.
  *
  * When the flash is full, further records are dropped and counted.
+ *
+ * Thread safety: ControlTask appends records and LogTask runs everything else;
+ * all functions except flashlog_ok() take the recorder lock.
  */
 #ifndef FLASHLOG_H
 #define FLASHLOG_H
@@ -21,6 +24,7 @@
 
 #define FLASHLOG_RECORD_SIZE    (64U)
 #define FLASHLOG_PAYLOAD_MAX    (48U)
+#define FLASHLOG_QUEUE_LEN      (8U)    /**< Records waiting to be written. */
 
 typedef enum
 {
@@ -47,13 +51,30 @@ bool flashlog_append(flashlog_type_t type, const void *payload, uint32_t len);
 /** Advances the erase/program/verify state machine. Call from the main loop. */
 void flashlog_poll(void);
 
-/** True while the recorder is working: the flash was found and is not full. */
+/** True while the recorder is working: the flash was found and is not full. Lock-free. */
 bool flashlog_ok(void);
+
+/** Number of records queued but not yet written. */
+uint32_t flashlog_pending(void);
 
 /** Logs the records written since the previous report and the running totals. */
 void flashlog_report(void);
 
 /** Reads back and logs the last @p count records. */
 void flashlog_dump(uint32_t count);
+
+/**
+ * Selects the recorder lock: a mutex with priority inheritance (true, the
+ * default) or a binary semaphore without it (false). Only for demonstrating
+ * priority inversion (docs/rtos.md).
+ */
+void flashlog_use_priority_inheritance(bool inherit);
+
+/**
+ * Takes the recorder lock, calls @p while_held (if not NULL), keeps the lock
+ * busy for @p ms milliseconds, as a slow flash operation would, and releases it.
+ * Only for demonstrating priority inversion.
+ */
+void flashlog_hold_lock(uint32_t ms, void (*while_held)(void));
 
 #endif /* FLASHLOG_H */

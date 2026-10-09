@@ -159,6 +159,54 @@ void canmsg_decode_nav(const uint8_t *payload, canmsg_nav_t *nav)
     nav->speed_dmps = payload[5];
 }
 
+void canmsg_encode_safety(uint8_t *payload, const canmsg_safety_t *safety)
+{
+    payload[0] = (uint8_t)safety->distance_dm;
+    payload[1] = (uint8_t)(safety->distance_dm >> 8);
+    payload[2] = safety->battery_pct;
+    payload[3] = safety->mode;
+    payload[4] = safety->flags;
+    payload[5] = safety->last_request_id;
+}
+
+void canmsg_decode_safety(const uint8_t *payload, canmsg_safety_t *safety)
+{
+    safety->distance_dm = (uint16_t)get_u16(payload);
+    safety->battery_pct = payload[2];
+    safety->mode = payload[3];
+    safety->flags = payload[4];
+    safety->last_request_id = payload[5];
+}
+
+void canmsg_encode_b_status(uint8_t *payload, const canmsg_b_status_t *status)
+{
+    (void)memset(payload, 0, CANMSG_PAYLOAD_LEN);
+    payload[0] = (uint8_t)status->link_age_ms;
+    payload[1] = (uint8_t)(status->link_age_ms >> 8);
+    payload[2] = status->flags;
+}
+
+void canmsg_decode_b_status(const uint8_t *payload, canmsg_b_status_t *status)
+{
+    status->link_age_ms = (uint16_t)get_u16(payload);
+    status->flags = payload[2];
+}
+
+void canmsg_encode_mode_req(uint8_t *payload, const canmsg_mode_req_t *req)
+{
+    (void)memset(payload, 0, CANMSG_PAYLOAD_LEN);
+    payload[0] = req->request_id;
+    payload[1] = req->mode;
+    payload[2] = req->override;
+}
+
+void canmsg_decode_mode_req(const uint8_t *payload, canmsg_mode_req_t *req)
+{
+    req->request_id = payload[0];
+    req->mode = payload[1];
+    req->override = payload[2];
+}
+
 uint32_t canmsg_track_seq(canmsg_seq_tracker_t *tracker, uint8_t seq)
 {
     uint32_t lost = 0U;

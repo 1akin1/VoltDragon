@@ -12,9 +12,15 @@ static volatile uint32_t s_ticks_ms;
 
 void SysTick_Handler(void);
 
+/* Default: nothing else runs on the tick. Node A overrides this to drive the RTOS tick. */
+__attribute__((weak)) void systick_hook(void)
+{
+}
+
 void SysTick_Handler(void)
 {
     s_ticks_ms = s_ticks_ms + 1U;
+    systick_hook();
 }
 
 void systick_init(uint32_t core_hz)

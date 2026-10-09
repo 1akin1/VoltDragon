@@ -8,6 +8,7 @@
 
 #include "gps.h"
 #include "imu.h"
+#include "lock.h"
 #include "log.h"
 
 #define DEG_PER_RAD     (57.29577951f)
@@ -46,6 +47,8 @@ typedef struct
 } nav_internal_t;
 
 static nav_internal_t s_nav;
+static nav_state_t s_published;
+static lock_t s_lock;
 
 static vec3f_t to_vec(const int32_t *v)
 {
@@ -199,6 +202,8 @@ void nav_init(void)
 {
     s_nav = (nav_internal_t){ 0 };
     s_nav.state.mag_ok = true;
+    s_published = s_nav.state;
+    lock_init(&s_lock);
     LOG_INFO("nav: expecting %u mG, dip %u deg; disturbed beyond %u%% or %u deg",
              (unsigned int)NAV_FIELD_MGAUSS, (unsigned int)NAV_DIP_DEG,
              (unsigned int)(NAV_FIELD_TOLERANCE * 100.0f), (unsigned int)NAV_DIP_TOLERANCE_DEG);
@@ -215,17 +220,26 @@ void nav_poll(uint32_t now_ms)
     }
     s_nav.last_sample = count;
     process_sample(&sample, now_ms);
+
+    /* The working state belongs to ImuTask; other tasks read the published copy. */
+    lock_take(&s_lock);
+    s_published = s_nav.state;
+    lock_give(&s_lock);
 }
 
 nav_state_t nav_state(void)
 {
-    return s_nav.state;
+    lock_take(&s_lock);
+    const nav_state_t state = s_published;
+    lock_give(&s_lock);
+    return state;
 }
 
 void nav_report(void)
 {
     static const char *const sources[] = { "none", "magnetometer", "GPS course" };
-    const nav_state_t *n = &s_nav.state;
+    const nav_state_t snapshot = nav_state();
+    const nav_state_t *n = &snapshot;
 
     LOG_INFO("nav: heading %u cdeg from %s, field %u mG, dip %d cdeg, magnetometer %s",
              (unsigned int)n->heading_cdeg, sources[n->source], (unsigned int)n->field_mgauss,

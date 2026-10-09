@@ -1,9 +1,10 @@
 /**
  * @file imu.h
- * @brief Periodic IMU sampling for Node A (HLR-007, HLR-010).
+ * @brief IMU sampling for Node A (HLR-007, HLR-010).
  *
- * Samples the LSM9DS1 every 10 ms from the main loop and keeps the latest
- * sample together with its validity, the achieved rate and an error count.
+ * ImuTask calls imu_sample() every 10 ms; the latest sample is kept together
+ * with its validity, the achieved rate and an error count. All functions are
+ * safe to call from any task.
  */
 #ifndef IMU_H
 #define IMU_H
@@ -18,8 +19,8 @@
 /** Brings up the sensor bus and the LSM9DS1. Returns false if the IMU is unusable. */
 bool imu_init(void);
 
-/** Takes a sample if one is due. Call from the main loop. */
-void imu_poll(uint32_t now_ms);
+/** Reads one sample from the LSM9DS1. Called by ImuTask every IMU_SAMPLE_PERIOD_MS. */
+void imu_sample(void);
 
 /** Copies the latest sample. Returns false if there is no valid sample. */
 bool imu_latest(lsm9ds1_sample_t *out);

@@ -15,6 +15,8 @@
 #define NUM_BUF_SIZE (12U)
 
 static usart_regs_t *s_uart;
+static log_lock_fn_t s_lock;
+static log_lock_fn_t s_unlock;
 
 static void out_char(char c)
 {
@@ -148,10 +150,22 @@ void log_init(usart_regs_t *uart)
     s_uart = uart;
 }
 
+void log_set_lock(log_lock_fn_t lock, log_lock_fn_t unlock)
+{
+    s_lock = lock;
+    s_unlock = unlock;
+}
+
 void log_line(char level, const char *fmt, ...)
 {
-    const uint32_t now = systick_now_ms();
     va_list args;
+
+    if (s_lock != 0)
+    {
+        s_lock();
+    }
+    /* Taken after the lock, so timestamps never go backwards between tasks. */
+    const uint32_t now = systick_now_ms();
 
     out_char('[');
     out_unsigned(now / 1000U, 10U, false, 6U, ' ');
@@ -168,6 +182,11 @@ void log_line(char level, const char *fmt, ...)
 
     out_char('\r');
     out_char('\n');
+
+    if (s_unlock != 0)
+    {
+        s_unlock();
+    }
 }
 
 void log_printf(const char *fmt, ...)

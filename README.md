@@ -46,7 +46,7 @@ flowchart TB
 | `tests/python` | pytest unit tests (plant model, ground station) |
 | `tests/integration` | End-to-end mission: plant model driving both nodes in Renode |
 | `tools/gdb` | GDB helpers (fault-frame decoding) |
-| `docs/` | [Roadmap](docs/roadmap.md), [HLR](docs/requirements/HLR.md), [LLR](docs/requirements/LLR.md), [debugging](docs/debugging.md), [command interface](docs/command-interface.md), [CAN messages](docs/can-messages.md), [telemetry](docs/telemetry.md), [simulation](docs/simulation.md), [MISRA deviations](docs/misra-deviations.md) |
+| `docs/` | [Roadmap](docs/roadmap.md), [HLR](docs/requirements/HLR.md), [LLR](docs/requirements/LLR.md), [debugging](docs/debugging.md), [command interface](docs/command-interface.md), [CAN messages](docs/can-messages.md), [telemetry](docs/telemetry.md), [simulation](docs/simulation.md), [RTOS](docs/rtos.md), [autopilot link and safety logic](docs/autopilot-link.md), [MISRA deviations](docs/misra-deviations.md) |
 
 ## Building
 
@@ -87,7 +87,8 @@ pytest
 
 # Fly the inspection mission: the plant model drives both nodes in Renode (docs/simulation.md)
 python -m sim.mission --duration 90
-python -m pytest tests/integration          # the same mission, checked against ground truth
+python -m sim.mission --scenario link-loss --duration 25   # or: battery, no-avoidance
+python -m pytest tests/integration          # four flights, checked against ground truth
 
 # ... with the ground-station display on the host (as root: Renode creates a TAP device)
 sudo python -m sim.mission --tap &
@@ -125,6 +126,20 @@ the ground station.
   distance to the line, the measured field and heading, and alarms.
 
 ![Ground station during the inspection mission](docs/images/ground_station.png)
+
+Phase 4 complete: Node A runs on FreeRTOS and keeps the vehicle safe.
+
+- Rate-monotonic tasks with static allocation, a watchdog that is reloaded only
+  while every periodic task runs, and a reproduced priority inversion (85 ms of
+  blocking) fixed by priority inheritance (5 ms) ([RTOS](docs/rtos.md)).
+- Node A commands the autopilot over a serial link: below 12 m from a conductor it
+  raises a proximity warning and orders the vehicle away; it returns home 3 s after
+  losing the ground station and below 20 % battery, and lands below 10 %. Operator
+  mode commands go through a transition table, and only an explicit override leaves
+  return-to-home ([autopilot link and safety logic](docs/autopilot-link.md)).
+- The plant now includes an autopilot that obeys those orders, so the safety logic is
+  tested in closed loop: the close pass, which the plan flies at 4 m from a conductor,
+  stays more than 10 m away.
 
 See the [roadmap](docs/roadmap.md).
 

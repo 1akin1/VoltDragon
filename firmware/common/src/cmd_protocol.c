@@ -302,6 +302,8 @@ const char *cmd_error_name(cmd_error_t error)
             return "UNKNOWN";
         case CMD_ERR_ARGS:
             return "ARGS";
+        case CMD_ERR_REFUSED:
+            return "REFUSED";
         default:
             return "?";
     }

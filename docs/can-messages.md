@@ -1,6 +1,6 @@
 # CAN messages
 
-Interface control document for the inter-node CAN bus (HLR-011, HLR-013).
+Interface control document for the inter-node CAN bus (HLR-003, HLR-005, HLR-011, HLR-013).
 
 Implementation: [`can.c`](../firmware/common/src/can.c) (bxCAN driver),
 [`can_msg.c`](../firmware/common/src/can_msg.c) (layout and protection),
@@ -15,7 +15,7 @@ Implementation: [`can.c`](../firmware/common/src/can.c) (bxCAN driver),
 | Bit rate | 500 kbit/s: prescaler 2 on the 16 MHz APB1 clock, 1 + 13 + 2 = 16 time quanta, sample point 87.5 % |
 | Frames | Classic CAN, 11-bit identifiers, data frames only, always 8 data bytes |
 | Error handling | Automatic retransmission; automatic bus-off recovery (ABOM) |
-| Load | 350 frames/s at about 130 bits each: about 9 % of the bus |
+| Load | 400 frames/s from Node A and 10 from Node B, at about 130 bits each: about 11 % of the bus |
 
 ## Frame layout
 
@@ -37,7 +37,7 @@ scheme of AUTOSAR E2E Profile 1.
 ## Messages from Node A
 
 Node A uses a fixed schedule of ten 2 ms slots: STATUS, ACCEL, GYRO, MAG,
-GPS_LAT, GPS_LON, NAV and three idle slots. Each message therefore repeats
+GPS_LAT, GPS_LON, NAV, SAFETY and two idle slots. Each message therefore repeats
 every 20 ms (50 Hz), and the bus never carries a burst: a burst of frames would
 overflow the receiver's three-deep hardware FIFO, which the first version of
 this design did.
@@ -51,11 +51,47 @@ this design did.
 | 0x104 | GPS_LAT | bytes 0..3: latitude, int32, degrees x 1e7; byte 4: GGA fix quality; byte 5: satellites | While the GPS fix is fresh (under 1 s) |
 | 0x105 | GPS_LON | bytes 0..3: longitude, int32, degrees x 1e7; bytes 4..5: altitude above mean sea level, int16, 0.1 m | While the GPS fix is fresh |
 | 0x106 | NAV | bytes 0..1: true heading, uint16, 0.01 deg; bytes 2..3: measured field strength, uint16, mgauss; byte 4: flags (bit 0 magnetometer OK, bit 1 GPS fix, bits 2-3 heading source: 0 none, 1 magnetometer, 2 GPS course); byte 5: ground speed, 0.1 m/s (saturates at 25.5 m/s) | Always |
+| 0x107 | SAFETY | bytes 0..1: distance to the nearest conductor, uint16, 0.1 m (0xFFFF: no fresh GPS fix); byte 2: battery, % (0xFF: autopilot silent); byte 3: flight mode (0 MISSION, 1 HOLD, 2 RETURN_TO_HOME, 3 LAND); byte 4: flags (see below); byte 5: id of the last operator mode request handled | Always |
+
+SAFETY flags:
+
+| Bit | Meaning |
+|-----|---------|
+| 0 (0x01) | Proximity warning: closer than 12 m to a conductor (until clear of 15 m) |
+| 1 (0x02) | Avoiding: the autopilot is ordered to keep 15 m from the line |
+| 2 (0x04) | Ground link lost (more than 3 s without ground station contact) |
+| 3 (0x08) | Battery low (below 20 %) |
+| 4 (0x10) | Battery critical (below 10 %) |
+| 5 (0x20) | Autopilot OK: its status arrived in the last second |
 
 Values outside their range saturate. Without a valid IMU sample the IMU
 messages are not sent, and without a fresh GPS fix the position messages are
 not sent; the receiver sees the flags cleared and the data age growing. With no
-IMU and no GPS, only STATUS and NAV flow (100 frames/s).
+IMU and no GPS, only STATUS, NAV and SAFETY flow (150 frames/s).
+
+## Messages from Node B
+
+| ID | Name | Payload (little-endian) | Sent |
+|----|------|-------------------------|------|
+| 0x200 | B_STATUS | bytes 0..1: ground link age, uint16, ms since the last intact ground station command (saturates at 65535); byte 2: flags (bit 0: a ground station has been heard since start); bytes 3..5 zero | Every 100 ms |
+| 0x201 | MODE_REQ | byte 0: request id (1..255, then wraps to 1); byte 1: requested flight mode; byte 2: 1 for an operator override (HLR-006); bytes 3..5 zero | Once per accepted `MODE` command |
+
+Node A adds the time since the last B_STATUS to the reported link age, so a
+silent Node B counts as a lost ground link too. Node A applies a MODE_REQ
+through its own transition table and reports the outcome in SAFETY (mode and
+last request id). A repeated request id within 500 ms is taken as the same
+frame delivered twice and ignored. Node B checks requests before forwarding
+them, against the mode it expects Node A to be in: the mode of a request it has
+just forwarded, until SAFETY shows that request handled (or 500 ms pass), so a
+command sent straight after another is not judged on an old report.
+
+## Reception on Node A
+
+A hardware filter admits 0x200..0x20F. Frames with the wrong length or CRC are
+rejected and counted; Node A's console reports the frames received from Node B
+and the rejected ones once per second. Node B's messages are not
+sequence-tracked: B_STATUS is periodic and its age is what matters, and
+MODE_REQ carries its own request id.
 
 ## Reception on Node B
 

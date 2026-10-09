@@ -29,8 +29,29 @@
 #define CANMSG_ID_A_GPS_LAT     (0x104U)
 #define CANMSG_ID_A_GPS_LON     (0x105U)
 #define CANMSG_ID_A_NAV         (0x106U)
+#define CANMSG_ID_A_SAFETY      (0x107U)
 #define CANMSG_NODE_A_ID_BASE   (0x100U)
 #define CANMSG_NODE_A_ID_MASK   (0x7F0U)
+
+/* Node B -> Node A. Node A accepts 0x200..0x20F. */
+#define CANMSG_ID_B_STATUS      (0x200U)    /* 10 Hz: ground link state */
+#define CANMSG_ID_B_MODE_REQ    (0x201U)    /* on operator command */
+#define CANMSG_NODE_B_ID_BASE   (0x200U)
+#define CANMSG_NODE_B_ID_MASK   (0x7F0U)
+
+/* SAFETY flags. */
+#define CANMSG_SAFETY_PROXIMITY     (0x01U)     /**< Closer than 12 m to a conductor (HLR-002). */
+#define CANMSG_SAFETY_AVOIDING      (0x02U)     /**< Autopilot commanded away from the line. */
+#define CANMSG_SAFETY_LINK_LOST     (0x04U)     /**< Ground link lost for more than 3 s. */
+#define CANMSG_SAFETY_BATTERY_LOW   (0x08U)     /**< Below 20 %. */
+#define CANMSG_SAFETY_BATTERY_CRIT  (0x10U)     /**< Below 10 %. */
+#define CANMSG_SAFETY_AUTOPILOT_OK  (0x20U)     /**< Autopilot status received within 1 s. */
+
+/* B_STATUS flags. */
+#define CANMSG_B_GROUND_CONTACT     (0x01U)     /**< At least one ground station command received. */
+
+#define CANMSG_UNKNOWN_U16          (0xFFFFU)
+#define CANMSG_UNKNOWN_U8           (0xFFU)
 
 #define CANMSG_DLC              (8U)
 #define CANMSG_PAYLOAD_LEN      (6U)
@@ -75,6 +96,31 @@ typedef struct
     uint8_t  speed_dmps;        /**< GPS ground speed, 0.1 m/s; saturates at 25.5 m/s. */
 } canmsg_nav_t;
 
+/** Node A's safety state, carried by SAFETY. */
+typedef struct
+{
+    uint16_t distance_dm;       /**< To the nearest conductor, 0.1 m; CANMSG_UNKNOWN_U16 without a fix. */
+    uint8_t  battery_pct;       /**< CANMSG_UNKNOWN_U8 if no autopilot status. */
+    uint8_t  mode;              /**< flight_mode_t */
+    uint8_t  flags;             /**< CANMSG_SAFETY_* */
+    uint8_t  last_request_id;   /**< Last operator mode request processed. */
+} canmsg_safety_t;
+
+/** Node B's view of the ground link, carried by B_STATUS. */
+typedef struct
+{
+    uint16_t link_age_ms;       /**< Since the last ground station command; saturates. */
+    uint8_t  flags;             /**< CANMSG_B_* */
+} canmsg_b_status_t;
+
+/** Operator mode request forwarded by Node B. */
+typedef struct
+{
+    uint8_t request_id;         /**< Increments per request; lets Node A ignore duplicates. */
+    uint8_t mode;               /**< flight_mode_t */
+    uint8_t override;           /**< 1: operator override (HLR-006). */
+} canmsg_mode_req_t;
+
 typedef struct
 {
     bool    synced;
@@ -111,6 +157,18 @@ void canmsg_decode_gps_lon(const uint8_t *payload, canmsg_gps_t *gps);
 /** NAV payload: heading (uint16), field (uint16), flags, speed. */
 void canmsg_encode_nav(uint8_t *payload, const canmsg_nav_t *nav);
 void canmsg_decode_nav(const uint8_t *payload, canmsg_nav_t *nav);
+
+/** SAFETY payload: distance (uint16), battery, mode, flags, last request id. */
+void canmsg_encode_safety(uint8_t *payload, const canmsg_safety_t *safety);
+void canmsg_decode_safety(const uint8_t *payload, canmsg_safety_t *safety);
+
+/** B_STATUS payload: link age (uint16), flags; bytes 3..5 zero. */
+void canmsg_encode_b_status(uint8_t *payload, const canmsg_b_status_t *status);
+void canmsg_decode_b_status(const uint8_t *payload, canmsg_b_status_t *status);
+
+/** B_MODE_REQ payload: request id, mode, override; bytes 3..5 zero. */
+void canmsg_encode_mode_req(uint8_t *payload, const canmsg_mode_req_t *req);
+void canmsg_decode_mode_req(const uint8_t *payload, canmsg_mode_req_t *req);
 
 /**
  * Updates the tracker with a received sequence counter and returns how many

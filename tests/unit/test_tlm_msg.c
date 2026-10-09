@@ -12,9 +12,9 @@ UNIT_MAIN_DEFINITIONS;
 
 /* Built from the specification with Python's struct module; also used by tests/python. */
 static const char REFERENCE_HEX[] =
-    "5644544d023f50000700000040e20100c0d40100010003000cfefa00e7031a04"
+    "5644544d033f58000700000040e20100c0d40100010003000cfefa00e7031a04"
     "fcd600001f018dff35fe0901e803000001000000020000009246c8172ef88c13"
-    "22247c1708023c0096000000c88e7318";
+    "22247c1708023c009600b7004c002003a4010000305d4ac4";
 
 static const tlm_packet_t REFERENCE = {
     .seq = 7U,
@@ -40,6 +40,12 @@ static const tlm_packet_t REFERENCE = {
     .field_mgauss = 520U,
     .speed_dmps = 60U,
     .gps_age_ms = 150U,
+    .distance_dm = 183U,
+    .battery_pct = 76U,
+    .flight_mode = 0U,
+    .safety_flags = 0x20U,
+    .last_request_id = 3U,
+    .ground_link_age_ms = 420U,
 };
 
 static void reference_bytes(uint8_t *out)
@@ -85,6 +91,12 @@ static void decodes_reference_packet(void)
     CHECK_EQ(p.field_mgauss, 520);
     CHECK_EQ(p.speed_dmps, 60);
     CHECK_EQ(p.gps_age_ms, 150);
+    CHECK_EQ(p.distance_dm, 183);
+    CHECK_EQ(p.battery_pct, 76);
+    CHECK_EQ(p.flight_mode, 0);
+    CHECK_EQ(p.safety_flags, 0x20);
+    CHECK_EQ(p.last_request_id, 3);
+    CHECK_EQ(p.ground_link_age_ms, 420);
 }
 
 static void rejects_any_single_bit_error(void)

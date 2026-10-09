@@ -10,7 +10,8 @@
 #include "log.h"
 
 #define NODE_A_FILTER_BANK  (0U)
-#define NODE_A_MESSAGES     (7U)
+#define NODE_A_MESSAGES     (8U)
+#define U16_MAX             (65535UL)
 
 typedef struct
 {
@@ -20,6 +21,16 @@ typedef struct
     uint32_t             reported_valid;
     canmsg_seq_tracker_t seq[NODE_A_MESSAGES];
     can_rx_node_a_t      node_a;
+    bool                 ground_contact;
+    uint32_t             ground_contact_ms;
+    uint32_t             next_b_status_ms;
+    uint8_t              b_status_seq;
+    uint8_t              mode_req_seq;
+    uint8_t              next_request_id;
+    bool                 request_pending;   /* forwarded, not yet confirmed by Node A */
+    uint8_t              pending_id;
+    flight_mode_t        pending_mode;
+    uint32_t             pending_ms;
 } can_rx_state_t;
 
 static can_rx_state_t s_rx;
@@ -43,6 +54,8 @@ static uint32_t message_index(uint16_t id)
             return 5U;
         case CANMSG_ID_A_NAV:
             return 6U;
+        case CANMSG_ID_A_SAFETY:
+            return 7U;
         default:
             return NODE_A_MESSAGES;
     }
@@ -89,15 +102,89 @@ static void store(const can_frame_t *frame, uint32_t now_ms)
             s_rx.node_a.gps_ms = now_ms;
             s_rx.node_a.any_gps = true;
             break;
+        case CANMSG_ID_A_SAFETY:
+            canmsg_decode_safety(frame->data, &s_rx.node_a.safety);
+            s_rx.node_a.any_safety = true;
+            break;
         default:
             canmsg_decode_nav(frame->data, &s_rx.node_a.nav);
             break;
     }
 }
 
+void can_rx_ground_contact(uint32_t now_ms)
+{
+    s_rx.ground_contact = true;
+    s_rx.ground_contact_ms = now_ms;
+}
+
+uint32_t can_rx_ground_link_age_ms(uint32_t now_ms)
+{
+    return s_rx.ground_contact ? (now_ms - s_rx.ground_contact_ms) : UINT32_MAX;
+}
+
+static void send_b_status(uint32_t now_ms)
+{
+    const uint32_t age = can_rx_ground_link_age_ms(now_ms);
+    const canmsg_b_status_t status = {
+        .link_age_ms = (uint16_t)((age > U16_MAX) ? U16_MAX : age),
+        .flags = s_rx.ground_contact ? CANMSG_B_GROUND_CONTACT : 0U,
+    };
+    uint8_t payload[CANMSG_PAYLOAD_LEN];
+    can_frame_t frame;
+
+    canmsg_encode_b_status(payload, &status);
+    canmsg_seal(&frame, CANMSG_ID_B_STATUS, payload, s_rx.b_status_seq);
+    s_rx.b_status_seq++;
+    (void)can_send(&frame);
+}
+
+uint8_t can_rx_request_mode(flight_mode_t mode, bool override, uint32_t now_ms)
+{
+    const canmsg_mode_req_t request = {
+        .request_id = s_rx.next_request_id,
+        .mode = (uint8_t)mode,
+        .override = override ? 1U : 0U,
+    };
+    uint8_t payload[CANMSG_PAYLOAD_LEN];
+    can_frame_t frame;
+
+    /* 0 is never used: it is Node A's last request id before any request. */
+    s_rx.next_request_id = (s_rx.next_request_id == UINT8_MAX) ? 1U
+                                                               : (uint8_t)(s_rx.next_request_id + 1U);
+    s_rx.request_pending = true;
+    s_rx.pending_id = request.request_id;
+    s_rx.pending_mode = mode;
+    s_rx.pending_ms = now_ms;
+    canmsg_encode_mode_req(payload, &request);
+    canmsg_seal(&frame, CANMSG_ID_B_MODE_REQ, payload, s_rx.mode_req_seq);
+    s_rx.mode_req_seq++;
+    (void)can_send(&frame);
+    return request.request_id;
+}
+
+bool can_rx_node_a_mode(uint32_t now_ms, flight_mode_t *mode)
+{
+    if (!s_rx.node_a.any_safety)
+    {
+        return false;
+    }
+    if (s_rx.request_pending && (s_rx.node_a.safety.last_request_id != s_rx.pending_id) &&
+        ((now_ms - s_rx.pending_ms) < CAN_RX_REQUEST_TIMEOUT_MS))
+    {
+        *mode = s_rx.pending_mode;
+        return true;
+    }
+    /* Node A has handled the request (or it was lost): its report is the truth again. */
+    s_rx.request_pending = false;
+    *mode = (flight_mode_t)s_rx.node_a.safety.mode;
+    return true;
+}
+
 bool can_rx_init(void)
 {
     s_rx = (can_rx_state_t){ 0 };
+    s_rx.next_request_id = 1U;
 
     if (!can_init() ||
         !can_add_filter(NODE_A_FILTER_BANK, CANMSG_NODE_A_ID_BASE, CANMSG_NODE_A_ID_MASK))
@@ -118,6 +205,13 @@ void can_rx_poll(uint32_t now_ms)
     if (!s_rx.ready)
     {
         return;
+    }
+
+    can_poll();
+    if ((int32_t)(now_ms - s_rx.next_b_status_ms) >= 0)
+    {
+        s_rx.next_b_status_ms = now_ms + CAN_RX_B_STATUS_PERIOD_MS;
+        send_b_status(now_ms);
     }
 
     while (can_receive(&frame))
@@ -198,4 +292,14 @@ void can_rx_report(uint32_t now_ms)
              (unsigned int)a->nav.field_mgauss,
              ((a->nav.flags & CANMSG_NAV_MAG_OK) != 0U) ? "ok" : "DISTURBED",
              ((a->nav.flags & CANMSG_NAV_GPS_FIX) != 0U) ? "fix" : "no fix");
+
+    if (a->any_safety)
+    {
+        const canmsg_safety_t *s = &a->safety;
+        LOG_INFO("can: A mode %s, distance %u dm, battery %u %%, flags 0x%02X; "
+                 "ground link age %lu ms",
+                 flight_mode_name((flight_mode_t)s->mode), (unsigned int)s->distance_dm,
+                 (unsigned int)s->battery_pct, (unsigned int)s->flags,
+                 can_rx_ground_link_age_ms(now_ms));
+    }
 }

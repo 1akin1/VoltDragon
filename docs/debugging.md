@@ -29,6 +29,9 @@ Send single characters on the UART window (or `usart2 WriteChar <ascii>` in the 
 | `c` | Node A only: send the next CAN frame with a wrong CRC |
 | `g` | Node A only: skip one CAN sequence number (simulated frame loss) |
 | `u` | Node A only: send one CAN frame with an identifier Node B does not accept |
+| `i` | Node A only: priority-inversion demo with the recorder lock as a binary semaphore ([rtos.md](rtos.md)) |
+| `m` | Node A only: the same demo with the mutex (priority inheritance) |
+| `k` | Node A only: suspend ControlTask; the watchdog supervision resets the node |
 
 ## Fault handling
 

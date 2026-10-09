@@ -28,6 +28,16 @@ add_unit_test(test_tlm_msg
 add_unit_test(test_nmea
     ${FIRMWARE_COMMON}/src/nmea.c
     ${FIRMWARE_COMMON}/src/cmd_protocol.c)
+add_unit_test(test_flight_mode
+    ${FIRMWARE_COMMON}/src/flight_mode.c)
+add_unit_test(test_ap_msg
+    ${FIRMWARE_COMMON}/src/ap_msg.c
+    ${FIRMWARE_COMMON}/src/flight_mode.c
+    ${FIRMWARE_COMMON}/src/cmd_protocol.c)
+add_unit_test(test_route
+    ${PROJECT_SOURCE_DIR}/firmware/node_a/src/route.c)
+target_include_directories(test_route PRIVATE ${PROJECT_SOURCE_DIR}/firmware/node_a/src)
+target_link_libraries(test_route PRIVATE m)
 add_unit_test(test_cmd_dispatch
     ${FIRMWARE_COMMON}/src/cmd_dispatch.c
     ${FIRMWARE_COMMON}/src/cmd_protocol.c)

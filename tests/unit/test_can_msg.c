@@ -146,6 +146,37 @@ static void gps_and_nav_round_trip(void)
     CHECK_EQ(nav_out.speed_dmps, 60);
 }
 
+static void safety_and_node_b_messages_round_trip(void)
+{
+    const canmsg_safety_t safety_in = { 115U, 18U, 2U, CANMSG_SAFETY_PROXIMITY | CANMSG_SAFETY_LINK_LOST,
+                                        7U };
+    const canmsg_b_status_t status_in = { 3200U, CANMSG_B_GROUND_CONTACT };
+    const canmsg_mode_req_t req_in = { 9U, 2U, 1U };
+    canmsg_safety_t safety_out;
+    canmsg_b_status_t status_out;
+    canmsg_mode_req_t req_out;
+    uint8_t payload[CANMSG_PAYLOAD_LEN];
+
+    canmsg_encode_safety(payload, &safety_in);
+    canmsg_decode_safety(payload, &safety_out);
+    CHECK_EQ(safety_out.distance_dm, 115);
+    CHECK_EQ(safety_out.battery_pct, 18);
+    CHECK_EQ(safety_out.mode, 2);
+    CHECK_EQ(safety_out.flags, safety_in.flags);
+    CHECK_EQ(safety_out.last_request_id, 7);
+
+    canmsg_encode_b_status(payload, &status_in);
+    canmsg_decode_b_status(payload, &status_out);
+    CHECK_EQ(status_out.link_age_ms, 3200);
+    CHECK_EQ(status_out.flags, CANMSG_B_GROUND_CONTACT);
+
+    canmsg_encode_mode_req(payload, &req_in);
+    canmsg_decode_mode_req(payload, &req_out);
+    CHECK_EQ(req_out.request_id, 9);
+    CHECK_EQ(req_out.mode, 2);
+    CHECK_EQ(req_out.override, 1);
+}
+
 static void sequence_tracker_counts_gaps(void)
 {
     canmsg_seq_tracker_t t = { false, 0U };
@@ -197,6 +228,7 @@ int main(void)
     RUN(gyro_scaling_keeps_ten_mdps_resolution);
     RUN(status_round_trips);
     RUN(gps_and_nav_round_trip);
+    RUN(safety_and_node_b_messages_round_trip);
     RUN(sequence_tracker_counts_gaps);
     RUN(sequence_tracker_handles_wrap_around);
     RUN(sequence_tracker_resynchronises_on_restart_or_duplicate);

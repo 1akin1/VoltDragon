@@ -48,6 +48,10 @@ static void build(tlm_packet_t *p, uint32_t now_ms)
     p->can_lost = can.lost;
 
     p->gps_age_ms = (uint16_t)U16_MAX;
+    p->ground_link_age_ms = (uint16_t)saturate(can_rx_ground_link_age_ms(now_ms), U16_MAX);
+    p->distance_dm = TLM_UNKNOWN_U16;
+    p->battery_pct = TLM_UNKNOWN_U8;
+    p->flight_mode = TLM_UNKNOWN_U8;
     if (!have_a)
     {
         p->node_a_age_ms = (uint16_t)U16_MAX;
@@ -103,6 +107,16 @@ static void build(tlm_packet_t *p, uint32_t now_ms)
         {
             p->flags |= TLM_FLAG_GPS_FIX;
         }
+    }
+
+    /* Safety: Node A's own view; the ground station raises its alarms from these flags. */
+    if (a.any_safety)
+    {
+        p->distance_dm = a.safety.distance_dm;
+        p->battery_pct = a.safety.battery_pct;
+        p->flight_mode = a.safety.mode;
+        p->safety_flags = a.safety.flags;
+        p->last_request_id = a.safety.last_request_id;
     }
 }
 

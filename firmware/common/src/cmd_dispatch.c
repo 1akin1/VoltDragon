@@ -43,9 +43,10 @@ static cmd_error_t execute(const cmd_dispatcher_t *dispatcher, const cmd_request
     }
 
     cmd_response_begin(rsp, req->seq, true, req->verb);
-    if (!entry->handler(req, rsp))
+    const cmd_error_t result = entry->handler(req, rsp);
+    if (result != CMD_OK)
     {
-        return CMD_ERR_ARGS;
+        return result;
     }
     cmd_response_end(rsp);
     return CMD_OK;
@@ -74,7 +75,8 @@ cmd_outcome_t cmd_dispatch_line(cmd_dispatcher_t *dispatcher, const char *line, 
         return outcome;
     }
 
-    if (dispatcher->has_last && (req.seq == dispatcher->last_seq))
+    if (dispatcher->has_last && (req.seq == dispatcher->last_seq) &&
+        (strcmp(line, dispatcher->last_line) == 0))
     {
         *rsp = dispatcher->last_response;
         outcome.error = dispatcher->last_error;
@@ -94,6 +96,9 @@ cmd_outcome_t cmd_dispatch_line(cmd_dispatcher_t *dispatcher, const char *line, 
 
     dispatcher->has_last = true;
     dispatcher->last_seq = req.seq;
+    /* cmd_parse accepted the line, so it fits; strncpy is used for the bound anyway. */
+    (void)strncpy(dispatcher->last_line, line, CMD_LINE_MAX);
+    dispatcher->last_line[CMD_LINE_MAX] = '\0';
     dispatcher->last_error = outcome.error;
     dispatcher->last_response = *rsp;
     return outcome;

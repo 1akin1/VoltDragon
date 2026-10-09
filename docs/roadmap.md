@@ -37,11 +37,19 @@ Total duration: about **6 weeks**, in 7 phases. Each phase ends with a milestone
 and with the ground-station display over a TAP link ([simulation.md](simulation.md)).
 
 ## Phase 4 - RTOS and safety logic (week 4)
-- [ ] Move to FreeRTOS: `ImuTask`, `ControlTask`, `CanTxTask`, `AiTask`, `LogTask`
-- [ ] Write the safe-distance check and the return-to-home-on-link-loss state machine
-- [ ] Reproduce a priority-inversion scenario and fix it with a mutex
+- [x] Move to FreeRTOS: `ImuTask`, `ControlTask`, `CanTxTask`, `LogTask` ([rtos.md](rtos.md));
+      `AiTask` arrives with its model in Phase 5
+- [x] Write the safe-distance check and the return-to-home-on-link-loss state machine,
+      with the battery failsafes and operator mode commands ([autopilot-link.md](autopilot-link.md))
+- [x] Reproduce a priority-inversion scenario and fix it with a mutex (85 ms → 5 ms worst-case wait)
+- [x] Added beyond the original plan: an autopilot link (UART5) and a simulated autopilot
+      in the plant, so the safety logic is tested in closed loop, not only open loop;
+      Node B → Node A CAN messages; a ground station heartbeat; telemetry version 3
 
 **Milestone:** The safety scenarios are verified with Robot Framework tests.
+✅ Verified open loop by `tests/robot/system_safety.robot` and `node_a_rtos.robot`, and in
+closed loop by `tests/integration/test_mission.py` (the close pass stays 10 m clear) and
+`test_safety.py` (link loss, battery).
 
 ## Phase 5 - Edge AI (week 5)
 - [ ] Inject a motor/propeller vibration fault in the plant model and collect data

@@ -40,6 +40,48 @@ def reply_is_valid(reply: str) -> bool:
         return False
 
 
+class Heartbeat:
+    """Sends PING to Node B once a second, so the vehicle knows the ground station is there.
+
+    Node B counts every intact command as ground contact; if none arrives for
+    3 s Node A returns home (HLR-003). Replies are read and counted, never waited for.
+    """
+
+    PERIOD_S = 1.0
+
+    def __init__(self, target: str = DEFAULT_TARGET, port: int = COMMAND_PORT) -> None:
+        self.address = (target, port)
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.sock.bind(("", 0))     # replies come back to this port; Windows needs it bound
+        self.sock.setblocking(False)
+        self.seq = 0
+        self.sent = 0
+        self.acknowledged = 0
+        self._next = 0.0
+
+    def poll(self, now: float) -> None:
+        """Sends a PING if one is due and counts the replies received so far."""
+        while True:
+            try:
+                reply = self.sock.recv(256).decode("ascii", errors="replace").strip()
+            except OSError:     # nothing waiting, or an ICMP error from a closed port
+                break
+            if reply_is_valid(reply) and ",ACK,PING" in reply:
+                self.acknowledged += 1
+        if now < self._next:
+            return
+        self._next = now + self.PERIOD_S
+        self.seq = self.seq % 65535 + 1
+        try:
+            self.sock.sendto(frame(self.seq, "PING").encode("ascii"), self.address)
+            self.sent += 1
+        except OSError:
+            pass                    # no route yet (TAP down): the vehicle will see link loss
+
+    def close(self) -> None:
+        self.sock.close()
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--target", default=DEFAULT_TARGET)

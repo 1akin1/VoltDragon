@@ -1,4 +1,4 @@
-"""Decoder for Node B's 80-byte UDP telemetry packet, version 2 (docs/telemetry.md).
+"""Decoder for Node B's 88-byte UDP telemetry packet, version 3 (docs/telemetry.md).
 
 Written independently from the firmware encoder (firmware/common/src/tlm_msg.c);
 both are checked against the same reference packet, so a layout change on one
@@ -11,8 +11,8 @@ import struct
 import zlib
 from dataclasses import dataclass
 
-PACKET_LEN = 80
-VERSION = 2
+PACKET_LEN = 88
+VERSION = 3
 MAGIC = b"VDTM"
 DEFAULT_PORT = 5600
 
@@ -25,10 +25,23 @@ HEADING_SOURCE_SHIFT = 5
 HEADING_SOURCE_MASK = 0x60
 HEADING_SOURCES = ("none", "magnetometer", "gps")
 
+# Node A's safety flags, forwarded unchanged from the CAN SAFETY message.
+SAFETY_PROXIMITY = 0x01
+SAFETY_AVOIDING = 0x02
+SAFETY_LINK_LOST = 0x04
+SAFETY_BATTERY_LOW = 0x08
+SAFETY_BATTERY_CRITICAL = 0x10
+SAFETY_AUTOPILOT_OK = 0x20
+
+FLIGHT_MODES = ("MISSION", "HOLD", "RETURN_TO_HOME", "LAND")
+UNKNOWN_U8 = 0xFF
+UNKNOWN_U16 = 0xFFFF
+
 # magic, version, flags, length, seq, B uptime, A uptime, A resets, B resets, A age,
 # accel[3], gyro[3], mag[3], GPS satellites, GPS quality, CAN valid, rejected, lost,
-# latitude, longitude, altitude, heading, field, speed, GPS age, reserved, CRC-32
-_LAYOUT = struct.Struct("<4sBBHIIIBBH3h3h3hBBIIIiihHHHHHI")
+# latitude, longitude, altitude, heading, field, speed, GPS age, distance, battery,
+# flight mode, safety flags, last request id, ground link age, reserved, CRC-32
+_LAYOUT = struct.Struct("<4sBBHIIIBBH3h3h3hBBIIIiihHHHHHBBBBHHI")
 assert _LAYOUT.size == PACKET_LEN
 
 _GYRO_UNIT_MDPS = 10
@@ -62,6 +75,12 @@ class Telemetry:
     field_mgauss: int
     speed_mps: float
     gps_age_ms: int
+    distance_m: float | None
+    battery_pct: int | None
+    flight_mode: str | None
+    safety_flags: int
+    last_request_id: int
+    ground_link_age_ms: int
 
     @property
     def node_a_fresh(self) -> bool:
@@ -88,6 +107,26 @@ class Telemetry:
         index = (self.flags & HEADING_SOURCE_MASK) >> HEADING_SOURCE_SHIFT
         return HEADING_SOURCES[index] if index < len(HEADING_SOURCES) else "unknown"
 
+    @property
+    def proximity(self) -> bool:
+        return bool(self.safety_flags & SAFETY_PROXIMITY)
+
+    @property
+    def link_lost(self) -> bool:
+        return bool(self.safety_flags & SAFETY_LINK_LOST)
+
+    @property
+    def battery_low(self) -> bool:
+        return bool(self.safety_flags & SAFETY_BATTERY_LOW)
+
+    @property
+    def battery_critical(self) -> bool:
+        return bool(self.safety_flags & SAFETY_BATTERY_CRITICAL)
+
+    @property
+    def autopilot_ok(self) -> bool:
+        return bool(self.safety_flags & SAFETY_AUTOPILOT_OK)
+
 
 def decode(datagram: bytes) -> Telemetry:
     """Parses and checks a telemetry datagram."""
@@ -109,6 +148,7 @@ def decode(datagram: bytes) -> Telemetry:
     accel, gyro, mag = f[10:13], f[13:16], f[16:19]
     sats, quality, can_valid, can_rejected, can_lost = f[19:24]
     lat, lon, alt_dm, heading, field, speed_dm, gps_age = f[24:31]
+    distance_dm, battery, mode, safety_flags, request_id, link_age = f[31:37]
 
     return Telemetry(
         seq=seq,
@@ -133,6 +173,12 @@ def decode(datagram: bytes) -> Telemetry:
         field_mgauss=field,
         speed_mps=speed_dm / 10.0,
         gps_age_ms=gps_age,
+        distance_m=None if distance_dm == UNKNOWN_U16 else distance_dm / 10.0,
+        battery_pct=None if battery == UNKNOWN_U8 else battery,
+        flight_mode=FLIGHT_MODES[mode] if mode < len(FLIGHT_MODES) else None,
+        safety_flags=safety_flags,
+        last_request_id=request_id,
+        ground_link_age_ms=link_age,
     )
 
 
@@ -145,6 +191,10 @@ def encode(t: Telemetry) -> bytes:
         t.gps_satellites, t.gps_quality, t.can_valid, t.can_rejected, t.can_lost,
         round(t.lat_deg * 1e7), round(t.lon_deg * 1e7), round(t.alt_msl_m * 10.0),
         round(t.heading_deg * 100.0), t.field_mgauss, round(t.speed_mps * 10.0), t.gps_age_ms,
+        UNKNOWN_U16 if t.distance_m is None else round(t.distance_m * 10.0),
+        UNKNOWN_U8 if t.battery_pct is None else t.battery_pct,
+        UNKNOWN_U8 if t.flight_mode is None else FLIGHT_MODES.index(t.flight_mode),
+        t.safety_flags, t.last_request_id, t.ground_link_age_ms,
         0, 0,
     )[:-4]
     return body + struct.pack("<I", zlib.crc32(body))

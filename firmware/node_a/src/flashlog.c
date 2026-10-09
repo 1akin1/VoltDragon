@@ -9,6 +9,7 @@
 
 #include "crc32.h"
 #include "iwdg.h"
+#include "lock.h"
 #include "log.h"
 #include "lsm9ds1.h"
 #include "mt25q.h"
@@ -16,7 +17,7 @@
 #include "systick.h"
 
 #define RECORD_MAGIC        (0x5644U)
-#define QUEUE_LEN           (8U)
+#define QUEUE_LEN           (FLASHLOG_QUEUE_LEN)
 /* An erased slot reads as all ones; checking the first word (magic, type, length) is enough. */
 #define ERASED_WORD         (0xFFFFFFFFUL)
 /* Longest wait in flashlog_dump() for a running operation; a 4 KiB erase takes up to 400 ms. */
@@ -63,6 +64,37 @@ typedef struct
 } flashlog_state_t;
 
 static flashlog_state_t s_log;
+
+/*
+ * The queue and the flash state are shared between ControlTask (flashlog_append)
+ * and LogTask (everything else). The lock is normally a mutex with priority
+ * inheritance; for the priority-inversion demonstration it can be switched to a
+ * binary semaphore, which has none (flashlog_use_priority_inheritance()).
+ */
+static lock_t s_mutex;
+static lock_t s_semaphore;
+static lock_t *volatile s_lock = &s_mutex;
+
+/** Takes whichever lock is current; returns it for the matching release. */
+static lock_t *enter(void)
+{
+    for (;;)
+    {
+        lock_t *lock = s_lock;
+        lock_take(lock);
+        /* The kind may have been switched while waiting: then retry with the new one. */
+        if (lock == s_lock)
+        {
+            return lock;
+        }
+        lock_give(lock);
+    }
+}
+
+static void leave(lock_t *lock)
+{
+    lock_give(lock);
+}
 
 static uint32_t slot_addr(uint32_t slot)
 {
@@ -218,6 +250,9 @@ bool flashlog_init(void)
     uint32_t end = 0U;
 
     s_log = (flashlog_state_t){ 0 };
+    lock_init(&s_mutex);
+    lock_init_without_inheritance(&s_semaphore);
+    s_lock = &s_mutex;
 
     mt25q_status_t status = mt25q_init(&size_bytes);
     if (status == MT25Q_OK)
@@ -248,53 +283,107 @@ bool flashlog_init(void)
 
 bool flashlog_append(flashlog_type_t type, const void *payload, uint32_t len)
 {
+    /* Stamped before waiting for the lock: the record keeps the time it was taken. */
+    const uint32_t now_ms = systick_now_ms();
+    lock_t *lock = enter();
+    bool queued = false;
+
     if (!s_log.ready || (len > FLASHLOG_PAYLOAD_MAX) || (s_log.queue_count >= QUEUE_LEN) ||
         (s_log.next_slot >= s_log.slot_count))
     {
         s_log.dropped++;
-        return false;
     }
-
-    record_t *rec = &s_log.queue[(s_log.queue_head + s_log.queue_count) % QUEUE_LEN];
-    (void)memset(rec, 0, sizeof(*rec));
-    rec->magic = RECORD_MAGIC;
-    rec->type = (uint8_t)type;
-    rec->length = (uint8_t)len;
-    rec->time_ms = systick_now_ms();
-    (void)memcpy(rec->payload, payload, len);
-    s_log.queue_count++;
-    return true;
+    else
+    {
+        record_t *rec = &s_log.queue[(s_log.queue_head + s_log.queue_count) % QUEUE_LEN];
+        (void)memset(rec, 0, sizeof(*rec));
+        rec->magic = RECORD_MAGIC;
+        rec->type = (uint8_t)type;
+        rec->length = (uint8_t)len;
+        rec->time_ms = now_ms;
+        (void)memcpy(rec->payload, payload, len);
+        s_log.queue_count++;
+        queued = true;
+    }
+    leave(lock);
+    return queued;
 }
 
 void flashlog_poll(void)
 {
+    /* Held across one SPI operation (well under a millisecond on the real part). */
+    lock_t *lock = enter();
     if (s_log.ready && complete_operation())
     {
         start_next_operation();
     }
+    leave(lock);
 }
 
 bool flashlog_ok(void)
 {
+    /*
+     * Deliberately lock-free: CanTxTask reads this for every STATUS frame and must
+     * never wait for the recorder. Both fields are aligned words with one writer, and
+     * a reading one record out of date is harmless.
+     */
     return s_log.ready && (s_log.next_slot < s_log.slot_count);
 }
 
 void flashlog_report(void)
 {
-    if (!s_log.ready)
+    lock_t *lock = enter();
+    const flashlog_state_t snapshot = s_log;
+    s_log.last_error = 0;
+    s_log.written_since_report = 0U;
+    leave(lock);
+
+    if (!snapshot.ready)
     {
         return;
     }
-
     LOG_INFO("flashlog: %lu rec/s, total %lu, dropped %lu, errors %lu",
-             s_log.written_since_report, s_log.next_slot, s_log.dropped, s_log.errors);
-    if (s_log.last_error != 0)
+             snapshot.written_since_report, snapshot.next_slot, snapshot.dropped, snapshot.errors);
+    if (snapshot.last_error != 0)
     {
-        LOG_WARN("flashlog: last error: %s", s_log.last_error);
-        s_log.last_error = 0;
+        LOG_WARN("flashlog: last error: %s", snapshot.last_error);
     }
-    s_log.written_since_report = 0U;
 }
+
+uint32_t flashlog_pending(void)
+{
+    lock_t *lock = enter();
+    const uint32_t pending = s_log.queue_count;
+    leave(lock);
+    return pending;
+}
+
+void flashlog_use_priority_inheritance(bool inherit)
+{
+    /* Holding both locks guarantees that no task is inside a critical section. */
+    lock_take(&s_mutex);
+    lock_take(&s_semaphore);
+    s_lock = inherit ? &s_mutex : &s_semaphore;
+    lock_give(&s_semaphore);
+    lock_give(&s_mutex);
+}
+
+void flashlog_hold_lock(uint32_t ms, void (*while_held)(void))
+{
+    lock_t *lock = enter();
+    if (while_held != 0)
+    {
+        while_held();
+    }
+    /* Busy, like a slow flash operation: the lock stays held for the whole time. */
+    const uint32_t start = systick_now_ms();
+    while ((systick_now_ms() - start) < ms)
+    {
+    }
+    leave(lock);
+}
+
+static void dump_locked(uint32_t count);
 
 static void print_record(const record_t *rec)
 {
@@ -325,6 +414,14 @@ static void print_record(const record_t *rec)
 }
 
 void flashlog_dump(uint32_t count)
+{
+    /* Debug command: holds the lock for the whole dump, which delays recording. */
+    lock_t *lock = enter();
+    dump_locked(count);
+    leave(lock);
+}
+
+static void dump_locked(uint32_t count)
 {
     if (!s_log.ready)
     {
