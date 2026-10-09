@@ -71,12 +71,17 @@ pytest
 
 Phase 1 complete: bare-metal Node A with its own startup code, linker script,
 register-level UART, watchdog, fault handler and a reset record that survives resets.
-See the [roadmap](docs/roadmap.md).
+
+Phase 2 in progress: Node A reads an LSM9DS1 IMU over a register-level I2C driver
+at 100 Hz. See the [roadmap](docs/roadmap.md).
 
 ## Limitations: to be verified in the hardware phase
 
 Renode is **not cycle-accurate**, and some peripherals are simplified (for example,
-the RCC reset flags are not modelled; see [debugging.md](docs/debugging.md)). Timing figures such as interrupt latency and
+the RCC reset flags are not modelled; see [debugging.md](docs/debugging.md)). Renode's
+LSM9DS1 model scales its outputs by ideal counts per unit rather than the datasheet
+sensitivities, so the firmware reads the gyroscope 5 % and the magnetometer 14.7 % high
+in simulation (see [node_a_imu.robot](tests/robot/node_a_imu.robot)). Timing figures such as interrupt latency and
 inference time do not reflect real hardware. Electrical concerns (I2C pull-ups, CAN
 termination, signal integrity) are not simulated. These items must be verified once
 the firmware runs on a real board.

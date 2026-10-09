@@ -6,6 +6,9 @@
 
 #define CONSOLE_TX_PIN  (2U)
 #define CONSOLE_RX_PIN  (3U)
+#define SENSOR_SCL_PIN  (6U)
+#define SENSOR_SDA_PIN  (7U)
+#define GPIO_AF4_I2C    (4UL)
 #define GPIO_AF7_USART  (7UL)
 
 static void gpio_set_alternate(gpio_regs_t *port, uint32_t pin, uint32_t af)
@@ -18,6 +21,14 @@ static void gpio_set_alternate(gpio_regs_t *port, uint32_t pin, uint32_t af)
     port->AFR[af_index] = (port->AFR[af_index] & ~(0xFUL << af_shift)) | (af << af_shift);
 }
 
+static void gpio_set_open_drain_pull_up(gpio_regs_t *port, uint32_t pin)
+{
+    const uint32_t pupd_shift = pin * 2U;
+
+    port->OTYPER |= (1UL << pin);
+    port->PUPDR = (port->PUPDR & ~(3UL << pupd_shift)) | (GPIO_PUPD_PULL_UP << pupd_shift);
+}
+
 void board_init(void)
 {
     RCC->AHB1ENR |= RCC_AHB1ENR_GPIOAEN;
@@ -27,4 +38,17 @@ void board_init(void)
 
     gpio_set_alternate(GPIOA, CONSOLE_TX_PIN, GPIO_AF7_USART);
     gpio_set_alternate(GPIOA, CONSOLE_RX_PIN, GPIO_AF7_USART);
+}
+
+void board_sensor_bus_init(void)
+{
+    RCC->AHB1ENR |= RCC_AHB1ENR_GPIOBEN;
+    RCC->APB1ENR |= RCC_APB1ENR_I2C1EN;
+    (void)RCC->APB1ENR;
+
+    /* Open-drain must be set before the pins are switched to the I2C function. */
+    gpio_set_open_drain_pull_up(GPIOB, SENSOR_SCL_PIN);
+    gpio_set_open_drain_pull_up(GPIOB, SENSOR_SDA_PIN);
+    gpio_set_alternate(GPIOB, SENSOR_SCL_PIN, GPIO_AF4_I2C);
+    gpio_set_alternate(GPIOB, SENSOR_SDA_PIN, GPIO_AF4_I2C);
 }

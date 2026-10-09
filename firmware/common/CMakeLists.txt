@@ -4,6 +4,7 @@
 add_library(voltdragon_common OBJECT
     src/board.c
     src/fault.c
+    src/i2c.c
     src/iwdg.c
     src/log.c
     src/node_boot.c

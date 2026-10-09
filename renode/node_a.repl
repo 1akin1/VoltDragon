@@ -1,0 +1,7 @@
+// Node A board: the common STM32F407 platform plus the sensors on its I2C1 bus.
+using "./stm32f407.repl"
+
+// LSM9DS1 IMU with SDO_AG and SDO_M tied high (see firmware/node_a/src/lsm9ds1.h).
+imu: Sensors.LSM9DS1_IMU @ i2c1 0x6B
+
+mag: Sensors.LSM9DS1_Magnetic @ i2c1 0x1E

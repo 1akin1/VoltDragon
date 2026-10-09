@@ -1,6 +1,6 @@
 # Low-Level Requirements (LLR)
 
-Status: **Draft v0.1** · Phase 1
+Status: **Draft v0.2** · Phase 2
 
 Low-level requirements refine the [high-level requirements](HLR.md) into
 statements that can be implemented and tested directly. The full
@@ -42,3 +42,15 @@ HLR → LLR → code → test traceability matrix is produced in Phase 6.
 | LLR-030 | The console shall use USART2 at 115200 baud, 8N1, on PA2/PA3. | (derived) | `board.c`, `uart.c` | All Robot tests |
 | LLR-031 | UART transmit waits shall be bounded so that logging can never block indefinitely. | HLR-016 | `uart.c` | Inspection |
 | LLR-032 | Each log line shall carry a timestamp in seconds and milliseconds since boot and a severity letter. | (derived) | `log.c` | `Should Print A Heartbeat Every Second` |
+
+## Sensor bus and IMU (Node A)
+
+| ID | Requirement | Parent | Code | Test |
+|----|-------------|--------|------|------|
+| LLR-040 | The sensor bus shall be I2C1 on PB6 (SCL) / PB7 (SDA), open-drain, in standard mode at 100 kHz. | (derived) | `board.c`, `i2c.c` | All `node_a_imu.robot` tests |
+| LLR-041 | Every I2C status wait shall be bounded. On a missing acknowledge, bus error, lost arbitration or timeout, the driver shall end the transfer with a STOP and return an error code. | HLR-010 | `i2c.c` | `Should Keep Running Without An Imu` |
+| LLR-042 | At start-up Node A shall check the LSM9DS1 WHO_AM_I values (0x68 accel/gyro, 0x3D magnetometer) and configure ±2 g, ±245 dps and ±4 gauss full scale. If the check fails, it shall log the cause and keep running without IMU data. | HLR-010 | `lsm9ds1.c`, `imu.c` | `Should Detect The Imu At Boot`, `Should Keep Running Without An Imu` |
+| LLR-043 | Node A shall read the accelerometer, gyroscope and magnetometer every 10 ms (100 Hz). If the main loop falls 20 ms or more behind, the missed samples shall be skipped rather than read in a burst. | HLR-007 | `imu.c` | `Should Sample The Imu At 100 Hz` |
+| LLR-044 | Raw readings shall be converted with the datasheet sensitivities (0.061 mg, 8.75 mdps and 0.14 mgauss per LSB), rounded to the nearest unit. | HLR-007 | `lsm9ds1.c` | `Should Report The Sensor Values Fed To The Model`, `Should Track Changing Sensor Values` |
+| LLR-045 | A failed IMU read shall mark the sample invalid until the next successful read, and an invalid sample shall not be returned to its users. | HLR-010 | `imu.c` | Inspection (runtime fault injection planned) |
+| LLR-046 | Once per second Node A shall log the number of samples taken in the last second, the number of failed reads and the latest sample. | (derived) | `imu.c` | `Should Sample The Imu At 100 Hz` |

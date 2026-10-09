@@ -107,7 +107,10 @@ _Static_assert(offsetof(rcc_regs_t, APB1ENR) == 0x40U, "RCC layout");
 _Static_assert(offsetof(rcc_regs_t, CSR) == 0x74U, "RCC layout");
 
 #define RCC_AHB1ENR_GPIOAEN     (1UL << 0)
+#define RCC_AHB1ENR_GPIOBEN     (1UL << 1)
 #define RCC_APB1ENR_USART2EN    (1UL << 17)
+#define RCC_APB1ENR_I2C1EN      (1UL << 21)
+#define RCC_APB1RSTR_I2C1RST    (1UL << 21)
 
 #define RCC_CSR_RMVF            (1UL << 24)
 #define RCC_CSR_BORRSTF         (1UL << 25)
@@ -135,6 +138,7 @@ typedef struct
 _Static_assert(offsetof(gpio_regs_t, AFR) == 0x20U, "GPIO layout");
 
 #define GPIO_MODE_AF            (2UL)
+#define GPIO_PUPD_PULL_UP       (1UL)
 
 /** USART (STM32F4 variant with SR/DR registers). */
 typedef struct
@@ -158,6 +162,40 @@ _Static_assert(offsetof(usart_regs_t, CR1) == 0x0CU, "USART layout");
 #define USART_CR1_TE            (1UL << 3)
 #define USART_CR1_UE            (1UL << 13)
 
+/** I2C (STM32F4 variant with SR1/SR2 registers). */
+typedef struct
+{
+    volatile uint32_t CR1;
+    volatile uint32_t CR2;
+    volatile uint32_t OAR1;
+    volatile uint32_t OAR2;
+    volatile uint32_t DR;
+    volatile uint32_t SR1;
+    volatile uint32_t SR2;
+    volatile uint32_t CCR;
+    volatile uint32_t TRISE;
+    volatile uint32_t FLTR;
+} i2c_regs_t;
+
+_Static_assert(offsetof(i2c_regs_t, SR1) == 0x14U, "I2C layout");
+_Static_assert(offsetof(i2c_regs_t, FLTR) == 0x24U, "I2C layout");
+
+#define I2C_CR1_PE              (1UL << 0)
+#define I2C_CR1_START           (1UL << 8)
+#define I2C_CR1_STOP            (1UL << 9)
+#define I2C_CR1_ACK             (1UL << 10)
+#define I2C_CR1_POS             (1UL << 11)
+#define I2C_CR1_SWRST           (1UL << 15)
+#define I2C_SR1_SB              (1UL << 0)
+#define I2C_SR1_ADDR            (1UL << 1)
+#define I2C_SR1_BTF             (1UL << 2)
+#define I2C_SR1_RXNE            (1UL << 6)
+#define I2C_SR1_TXE             (1UL << 7)
+#define I2C_SR1_BERR            (1UL << 8)
+#define I2C_SR1_ARLO            (1UL << 9)
+#define I2C_SR1_AF              (1UL << 10)
+#define I2C_SR2_BUSY            (1UL << 1)
+
 /** Independent watchdog (0x40003000). */
 typedef struct
 {
@@ -173,7 +211,9 @@ typedef struct
 
 #define RCC     ((rcc_regs_t *)0x40023800UL)
 #define GPIOA   ((gpio_regs_t *)0x40020000UL)
+#define GPIOB   ((gpio_regs_t *)0x40020400UL)
 #define USART2  ((usart_regs_t *)0x40004400UL)
+#define I2C1    ((i2c_regs_t *)0x40005400UL)
 #define IWDG    ((iwdg_regs_t *)0x40003000UL)
 
 #endif /* STM32F4_REGS_H */

@@ -1,17 +1,19 @@
 :name: VoltDragon Node A
-:description: Single STM32F407 node running the Node A firmware.
+:description: Single STM32F407 node with an LSM9DS1 IMU, running the Node A firmware.
 :
 : Usage (from the repository root):
 :   renode renode/node_a.resc
 :   renode --console --disable-gui renode/node_a.resc    (headless, UART in log)
 :
 : Override the firmware with:  $bin_a=@path/to/node_a.elf  before including this script.
+: Override the board with:     $platform_a=@path/to/board.repl  (e.g. one without the IMU).
 
 $bin_a?=$ORIGIN/../build/debug/firmware/node_a/node_a.elf
+$platform_a?=$ORIGIN/node_a.repl
 
 using sysbus
 mach create "node_a"
-machine LoadPlatformDescription $ORIGIN/stm32f407.repl
+machine LoadPlatformDescription $platform_a
 
 # Honour SCB_CCR.DIV_0_TRP so integer division by zero traps as on silicon.
 nvic FilterCcrDiv0Write false

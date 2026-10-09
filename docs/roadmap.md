@@ -16,7 +16,9 @@ Total duration: about **6 weeks**, in 7 phases. Each phase ends with a milestone
 ✅ Verified by `tests/robot/node_a_boot.robot` (7 tests) and the GDB workflow in [debugging.md](debugging.md).
 
 ## Phase 2 - Sensors and communication (week 2)
-- [ ] Write the I2C IMU, SPI flash (logging) and UART command-parser drivers
+- [x] Write the I2C driver and read the LSM9DS1 IMU at 100 Hz on Node A
+- [ ] Write the SPI flash (logging) driver
+- [ ] Write the UART command parser
 - [ ] Add Node B and set up CAN communication between the two nodes
 - [ ] Send UDP telemetry from Node B with lwIP and check it in Wireshark
 
