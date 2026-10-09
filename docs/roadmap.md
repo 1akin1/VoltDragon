@@ -19,7 +19,7 @@ Total duration: about **6 weeks**, in 7 phases. Each phase ends with a milestone
 - [x] Write the I2C driver and read the LSM9DS1 IMU at 100 Hz on Node A
 - [x] Write the SPI driver and record flight data to the MT25Q flash at 10 Hz
 - [x] Write the UART command parser for Node B, with host unit tests
-- [ ] Add Node B and set up CAN communication between the two nodes
+- [x] Add Node B and set up CAN communication between the two nodes
 - [ ] Send UDP telemetry from Node B with lwIP and check it in Wireshark
 
 **Milestone:** IMU data travels from A to B over CAN, then on to the ground station over UDP.

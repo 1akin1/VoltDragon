@@ -7,6 +7,7 @@
 #include <stdbool.h>
 
 #include "board.h"
+#include "can_rx.h"
 #include "cmd_dispatch.h"
 #include "log.h"
 #include "reset_info.h"
@@ -76,11 +77,33 @@ static bool handle_tlm_rate(const cmd_request_t *req, cmd_response_t *rsp)
     return true;
 }
 
+static bool handle_can(const cmd_request_t *req, cmd_response_t *rsp)
+{
+    const can_rx_stats_t stats = can_rx_stats();
+    can_rx_node_a_t node_a;
+
+    (void)req;
+    cmd_response_add_u32(rsp, stats.valid);
+    cmd_response_add_u32(rsp, stats.rejected);
+    cmd_response_add_u32(rsp, stats.lost);
+    cmd_response_add_u32(rsp, stats.unknown_id);
+    if (can_rx_node_a(&node_a))
+    {
+        cmd_response_add_u32(rsp, systick_now_ms() - node_a.last_valid_ms);
+    }
+    else
+    {
+        cmd_response_add(rsp, "-");
+    }
+    return true;
+}
+
 static const cmd_entry_t s_table[] = {
     { "PING", 0U, 0U, handle_ping },
     { "VERSION", 0U, 0U, handle_version },
     { "STATUS", 0U, 0U, handle_status },
     { "TLM_RATE", 0U, 1U, handle_tlm_rate },
+    { "CAN", 0U, 0U, handle_can },
 };
 
 #define TABLE_SIZE (sizeof(s_table) / sizeof(s_table[0]))

@@ -63,6 +63,7 @@ sequence number for each new command.
 | `PING` | none | none | Liveness check |
 | `VERSION` | none | `<major.minor.patch>` | Firmware version |
 | `STATUS` | none | `<uptime_ms>,<reset_count>,<accepted>,<rejected>` | Counters exclude the STATUS request itself and replays |
+| `CAN` | none | `<valid>,<rejected>,<lost>,<unknown_id>,<age_ms>` | CAN link counters (see [can-messages.md](can-messages.md)); `age_ms` is the time since the last valid frame from Node A, or `-` if none has arrived |
 | `TLM_RATE` | `[<hz>]` | `<hz>` | Without an argument, returns the current rate. With one, sets it; valid range 10 to 50 Hz (HLR-012 requires at least 10 Hz). Default 10 Hz. |
 
 ## Timing and limits

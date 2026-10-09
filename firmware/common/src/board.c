@@ -6,6 +6,8 @@
 
 #define CONSOLE_TX_PIN  (2U)
 #define CONSOLE_RX_PIN  (3U)
+#define CAN_RX_PIN      (8U)
+#define CAN_TX_PIN      (9U)
 #define COMMAND_TX_PIN  (10U)
 #define COMMAND_RX_PIN  (11U)
 #define SENSOR_SCL_PIN  (6U)
@@ -17,6 +19,7 @@
 #define GPIO_AF4_I2C    (4UL)
 #define GPIO_AF5_SPI    (5UL)
 #define GPIO_AF7_USART  (7UL)
+#define GPIO_AF9_CAN    (9UL)
 
 static void gpio_set_alternate(gpio_regs_t *port, uint32_t pin, uint32_t af)
 {
@@ -62,6 +65,16 @@ void board_command_uart_init(void)
 
     gpio_set_alternate(GPIOB, COMMAND_TX_PIN, GPIO_AF7_USART);
     gpio_set_alternate(GPIOB, COMMAND_RX_PIN, GPIO_AF7_USART);
+}
+
+void board_can_init(void)
+{
+    RCC->AHB1ENR |= RCC_AHB1ENR_GPIOBEN;
+    RCC->APB1ENR |= RCC_APB1ENR_CAN1EN;
+    (void)RCC->APB1ENR;
+
+    gpio_set_alternate(GPIOB, CAN_RX_PIN, GPIO_AF9_CAN);
+    gpio_set_alternate(GPIOB, CAN_TX_PIN, GPIO_AF9_CAN);
 }
 
 void board_sensor_bus_init(void)

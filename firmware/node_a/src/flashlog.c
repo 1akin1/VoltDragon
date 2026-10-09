@@ -274,6 +274,11 @@ void flashlog_poll(void)
     }
 }
 
+bool flashlog_ok(void)
+{
+    return s_log.ready && (s_log.next_slot < s_log.slot_count);
+}
+
 void flashlog_report(void)
 {
     if (!s_log.ready)

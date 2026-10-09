@@ -1,4 +1,5 @@
 add_executable(node_b
+    src/can_rx.c
     src/commands.c
     src/main.c)
 set_target_properties(node_b PROPERTIES SUFFIX ".elf")

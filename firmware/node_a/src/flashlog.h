@@ -47,6 +47,9 @@ bool flashlog_append(flashlog_type_t type, const void *payload, uint32_t len);
 /** Advances the erase/program/verify state machine. Call from the main loop. */
 void flashlog_poll(void);
 
+/** True while the recorder is working: the flash was found and is not full. */
+bool flashlog_ok(void);
+
 /** Logs the records written since the previous report and the running totals. */
 void flashlog_report(void);
 

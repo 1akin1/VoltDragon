@@ -8,6 +8,7 @@
  *   VERSION           firmware version
  *   STATUS            uptime_ms, reset_count, commands_accepted, commands_rejected
  *   TLM_RATE [hz]     query or set the telemetry rate, 10..50 Hz
+ *   CAN               valid, rejected, lost, unknown_id, age_ms of Node A data ('-' if none)
  */
 #ifndef COMMANDS_H
 #define COMMANDS_H

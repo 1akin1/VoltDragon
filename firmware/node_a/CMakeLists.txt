@@ -1,4 +1,5 @@
 add_executable(node_a
+    src/can_tx.c
     src/flashlog.c
     src/imu.c
     src/lsm9ds1.c

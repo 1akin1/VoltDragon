@@ -43,7 +43,7 @@ flowchart TB
 | `tests/unit` | Host unit tests for hardware-independent firmware modules (ctest) |
 | `tests/python` | pytest unit tests |
 | `tools/gdb` | GDB helpers (fault-frame decoding) |
-| `docs/` | [Roadmap](docs/roadmap.md), [HLR](docs/requirements/HLR.md), [LLR](docs/requirements/LLR.md), [debugging](docs/debugging.md), [command interface](docs/command-interface.md), [MISRA deviations](docs/misra-deviations.md) |
+| `docs/` | [Roadmap](docs/roadmap.md), [HLR](docs/requirements/HLR.md), [LLR](docs/requirements/LLR.md), [debugging](docs/debugging.md), [command interface](docs/command-interface.md), [CAN messages](docs/can-messages.md), [MISRA deviations](docs/misra-deviations.md) |
 
 ## Building
 
@@ -57,6 +57,9 @@ cmake --build --preset debug
 
 # Run Node A in Renode (see docs/debugging.md for the debug keys and GDB)
 renode renode/node_a.resc
+
+# Run both nodes on a shared CAN bus
+renode renode/system.resc
 
 # Host unit tests for hardware-independent firmware modules (native gcc)
 cmake --preset host-tests
@@ -81,7 +84,9 @@ register-level UART, watchdog, fault handler and a reset record that survives re
 Phase 2 in progress: Node A reads an LSM9DS1 IMU over a register-level I2C driver
 at 100 Hz and records flight data at 10 Hz to an MT25Q SPI flash, without ever
 waiting for the flash in the main loop. Node B accepts operator commands on its
-own UART with checksummed, acknowledged frames ([command interface](docs/command-interface.md)). See the [roadmap](docs/roadmap.md).
+own UART with checksummed, acknowledged frames ([command interface](docs/command-interface.md)).
+Node A sends its sensor and status data to Node B over CAN at 50 Hz, each frame
+protected by a sequence counter and an end-to-end CRC ([CAN messages](docs/can-messages.md)). See the [roadmap](docs/roadmap.md).
 
 ## Limitations: to be verified in the hardware phase
 

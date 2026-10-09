@@ -83,3 +83,18 @@ Protocol details: [command-interface.md](../command-interface.md).
 | LLR-065 | A request with the same sequence number as the previous one shall be answered with the previous response without executing the command again. | HLR-014 | `cmd_dispatch.c` | Unit: `replays_*`; Robot: `Should Replay The Response To A Retransmitted Command` |
 | LLR-066 | Node B shall support `PING`, `VERSION`, `STATUS` and `TLM_RATE` (10 to 50 Hz, default 10 Hz). | HLR-012, HLR-014 | `commands.c` | `Should Answer Ping And Version`, `Should Report Status Counters`, `Should Set And Query The Telemetry Rate` |
 | LLR-067 | Node B shall log each command and its outcome on the debug console. | (derived) | `commands.c` | `Should Replay The Response To A Retransmitted Command` |
+
+## Inter-node CAN link
+
+Message layout: [can-messages.md](../can-messages.md).
+
+| ID | Requirement | Parent | Code | Test |
+|----|-------------|--------|------|------|
+| LLR-070 | Both nodes shall use CAN1 (PB8/PB9) at 500 kbit/s with 11-bit identifiers, automatic retransmission and automatic bus-off recovery. Controller mode changes shall be bounded waits. | HLR-011 | `board.c`, `can.c` | All `system_can.robot` tests |
+| LLR-071 | Every message shall be 8 bytes: 6 payload bytes, a per-identifier sequence counter and a CRC-8/SAE-J1850 over the identifier and the first 7 bytes. | HLR-013 | `can_msg.c`, `crc8.c` | Unit: `test_can_msg`; Robot: `Should Reject A Corrupted Frame` |
+| LLR-072 | Node A shall send STATUS, ACCEL, GYRO and MAG at 50 Hz each, one frame every 5 ms in a fixed rotation. The IMU messages shall be sent only while the IMU sample is valid. | HLR-011 | `can_tx.c` | `Should Deliver Node A Data To Node B At 50 Hz`, `Should Flag Missing Imu Data From Node A` |
+| LLR-073 | Node B shall accept only identifiers 0x100..0x10F, using the hardware acceptance filter. | HLR-013 | `can.c`, `can_rx.c` | `Should Filter Out Foreign Identifiers In Hardware` |
+| LLR-074 | Node B shall reject and count frames with a wrong length or CRC, and shall not use their content. | HLR-010, HLR-013 | `can_rx.c` | `Should Reject A Corrupted Frame` |
+| LLR-075 | Node B shall count gaps of 1..127 in each identifier's sequence counter as lost frames, and shall resynchronise without counting on larger or backward jumps and when STATUS shows that Node A restarted. | HLR-013 | `can_msg.c`, `can_rx.c` | Unit: `sequence_tracker_*`; Robot: `Should Count A Lost Frame`, `Should Resynchronise When Node A Restarts` |
+| LLR-076 | Node B shall keep the latest Node A data with the arrival time of the last valid frame, and report frame counts, error counts and data age once per second and through the `CAN` command. | HLR-010, HLR-014 | `can_rx.c`, `commands.c` | `Should Deliver Node A Data To Node B At 50 Hz`, `Should Report Link Statistics On The Command Interface`, `Should Report No Data Without Node A` |
+| LLR-077 | Node A shall provide debug-console fault injection for the CAN link: wrong CRC, skipped sequence number and a foreign identifier. | (derived) | `can_tx.c`, `main.c` | `system_can.robot` fault tests |

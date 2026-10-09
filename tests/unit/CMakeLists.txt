@@ -18,6 +18,10 @@ endfunction()
 
 add_unit_test(test_cmd_protocol
     ${FIRMWARE_COMMON}/src/cmd_protocol.c)
+add_unit_test(test_can_msg
+    ${FIRMWARE_COMMON}/src/can_msg.c
+    ${FIRMWARE_COMMON}/src/crc8.c
+    ${FIRMWARE_COMMON}/src/crc32.c)
 add_unit_test(test_cmd_dispatch
     ${FIRMWARE_COMMON}/src/cmd_dispatch.c
     ${FIRMWARE_COMMON}/src/cmd_protocol.c)

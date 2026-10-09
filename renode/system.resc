@@ -1,0 +1,24 @@
+:name: VoltDragon system
+:description: Node A and Node B on a shared CAN bus.
+:
+: Usage (from the repository root):
+:   renode renode/system.resc
+:
+: Override the firmware with $bin_a / $bin_b and Node A's board with $platform_a
+: before including this script (see node_a.resc and node_b.resc).
+
+emulation CreateCANHub "canBus" false
+
+include $ORIGIN/node_a.resc
+connector Connect sysbus.can1 canBus
+
+# Deselect Node A first: Renode variables and macros belong to the selected
+# machine, and node_b.resc must define $bin_b and its reset macro for Node B.
+mach clear
+include $ORIGIN/node_b.resc
+connector Connect sysbus.can1 canBus
+
+# Keep the two machines' virtual clocks close together (100 us), so a frame sent
+# by one node reaches the other within one quantum.
+emulation SetGlobalQuantum "0.0001"
+emulation SetGlobalSerialExecution true

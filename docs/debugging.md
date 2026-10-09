@@ -26,6 +26,9 @@ Send single characters on the UART window (or `usart2 WriteChar <ascii>` in the 
 | `r` | Software reset |
 | `?` | Help |
 | `d` | Node A only: read back and print the last 5 flight-log records from SPI flash |
+| `c` | Node A only: send the next CAN frame with a wrong CRC |
+| `g` | Node A only: skip one CAN sequence number (simulated frame loss) |
+| `u` | Node A only: send one CAN frame with an identifier Node B does not accept |
 
 ## Fault handling
 

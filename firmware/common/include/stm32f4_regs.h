@@ -113,6 +113,7 @@ _Static_assert(offsetof(rcc_regs_t, CSR) == 0x74U, "RCC layout");
 #define RCC_APB1ENR_USART2EN    (1UL << 17)
 #define RCC_APB1ENR_USART3EN    (1UL << 18)
 #define RCC_APB1ENR_I2C1EN      (1UL << 21)
+#define RCC_APB1ENR_CAN1EN      (1UL << 25)
 #define RCC_APB1RSTR_I2C1RST    (1UL << 21)
 #define RCC_APB2ENR_SPI1EN      (1UL << 12)
 
@@ -232,6 +233,88 @@ _Static_assert(offsetof(spi_regs_t, I2SPR) == 0x20U, "SPI layout");
 #define SPI_SR_OVR              (1UL << 6)
 #define SPI_SR_BSY              (1UL << 7)
 
+/** bxCAN transmit mailbox. */
+typedef struct
+{
+    volatile uint32_t TIR;
+    volatile uint32_t TDTR;
+    volatile uint32_t TDLR;
+    volatile uint32_t TDHR;
+} can_tx_mailbox_t;
+
+/** bxCAN receive FIFO output mailbox. */
+typedef struct
+{
+    volatile uint32_t RIR;
+    volatile uint32_t RDTR;
+    volatile uint32_t RDLR;
+    volatile uint32_t RDHR;
+} can_fifo_mailbox_t;
+
+/** bxCAN filter bank. */
+typedef struct
+{
+    volatile uint32_t FR1;
+    volatile uint32_t FR2;
+} can_filter_bank_t;
+
+#define CAN_TX_MAILBOXES    (3U)
+#define CAN_FILTER_BANKS    (28U)
+
+/** bxCAN controller (RM0090 section 32.9). */
+typedef struct
+{
+    volatile uint32_t  MCR;
+    volatile uint32_t  MSR;
+    volatile uint32_t  TSR;
+    volatile uint32_t  RF0R;
+    volatile uint32_t  RF1R;
+    volatile uint32_t  IER;
+    volatile uint32_t  ESR;
+    volatile uint32_t  BTR;
+    uint32_t           RESERVED0[88];
+    can_tx_mailbox_t   TX[CAN_TX_MAILBOXES];
+    can_fifo_mailbox_t RX[2];
+    uint32_t           RESERVED1[12];
+    volatile uint32_t  FMR;
+    volatile uint32_t  FM1R;
+    uint32_t           RESERVED2;
+    volatile uint32_t  FS1R;
+    uint32_t           RESERVED3;
+    volatile uint32_t  FFA1R;
+    uint32_t           RESERVED4;
+    volatile uint32_t  FA1R;
+    uint32_t           RESERVED5[8];
+    can_filter_bank_t  FILTER[CAN_FILTER_BANKS];
+} can_regs_t;
+
+_Static_assert(offsetof(can_regs_t, BTR) == 0x1CU, "CAN layout");
+_Static_assert(offsetof(can_regs_t, TX) == 0x180U, "CAN layout");
+_Static_assert(offsetof(can_regs_t, RX) == 0x1B0U, "CAN layout");
+_Static_assert(offsetof(can_regs_t, FMR) == 0x200U, "CAN layout");
+_Static_assert(offsetof(can_regs_t, FA1R) == 0x21CU, "CAN layout");
+_Static_assert(offsetof(can_regs_t, FILTER) == 0x240U, "CAN layout");
+
+#define CAN_MCR_INRQ            (1UL << 0)
+#define CAN_MCR_SLEEP           (1UL << 1)
+#define CAN_MCR_TXFP            (1UL << 2)
+#define CAN_MCR_ABOM            (1UL << 6)
+#define CAN_MSR_INAK            (1UL << 0)
+#define CAN_MSR_SLAK            (1UL << 1)
+#define CAN_TSR_TME0            (1UL << 26)
+#define CAN_RF0R_FMP0_MASK      (3UL << 0)
+#define CAN_RF0R_FOVR0          (1UL << 4)
+#define CAN_RF0R_RFOM0          (1UL << 5)
+#define CAN_ESR_BOFF            (1UL << 2)
+#define CAN_ESR_TEC_SHIFT       (16U)
+#define CAN_ESR_REC_SHIFT       (24U)
+#define CAN_TIR_TXRQ            (1UL << 0)
+#define CAN_ID_STD_SHIFT        (21U)
+#define CAN_ID_RTR              (1UL << 1)
+#define CAN_ID_IDE              (1UL << 2)
+#define CAN_DLC_MASK            (0xFUL)
+#define CAN_FMR_FINIT           (1UL << 0)
+
 /** Independent watchdog (0x40003000). */
 typedef struct
 {
@@ -254,6 +337,7 @@ typedef struct
 /* Interrupt numbers (RM0090 table 61). */
 #define USART3_IRQN (39U)
 #define I2C1    ((i2c_regs_t *)0x40005400UL)
+#define CAN1    ((can_regs_t *)0x40006400UL)
 #define SPI1    ((spi_regs_t *)0x40013000UL)
 #define IWDG    ((iwdg_regs_t *)0x40003000UL)
 
