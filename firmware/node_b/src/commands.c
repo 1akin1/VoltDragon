@@ -5,6 +5,7 @@
 #include "commands.h"
 
 #include <stdbool.h>
+#include <string.h>
 
 #include "board.h"
 #include "can_rx.h"
@@ -21,6 +22,8 @@ typedef struct
     cmd_line_t       line;
     cmd_dispatcher_t dispatcher;
     cmd_response_t   response;
+    cmd_dispatcher_t udp_dispatcher;    /* Own retransmission cache: UDP is a separate session. */
+    cmd_response_t   udp_response;
     uint32_t         accepted;
     uint32_t         rejected;
     uint32_t         reported_rx_errors;
@@ -108,7 +111,7 @@ static const cmd_entry_t s_table[] = {
 
 #define TABLE_SIZE (sizeof(s_table) / sizeof(s_table[0]))
 
-static void send_response(const char *request, cmd_outcome_t outcome)
+static void record_outcome(const char *transport, const char *request, cmd_outcome_t outcome)
 {
     /* A replay re-sends an earlier reply; the command was not processed again. */
     if (outcome.replayed)
@@ -123,10 +126,15 @@ static void send_response(const char *request, cmd_outcome_t outcome)
         s_cmd.rejected++;
     }
 
-    uart_write(BOARD_COMMAND_UART, s_cmd.response.buf);
-    LOG_INFO("cmd: %s -> %s%s", request,
+    LOG_INFO("cmd%s: %s -> %s%s", transport, request,
              (outcome.error == CMD_OK) ? "ACK" : cmd_error_name(outcome.error),
              outcome.replayed ? " (replayed)" : "");
+}
+
+static void send_response(const char *request, cmd_outcome_t outcome)
+{
+    uart_write(BOARD_COMMAND_UART, s_cmd.response.buf);
+    record_outcome("", request, outcome);
 }
 
 void commands_init(void)
@@ -135,6 +143,7 @@ void commands_init(void)
     s_cmd.telemetry_rate_hz = COMMANDS_TLM_RATE_DEFAULT_HZ;
     cmd_line_reset(&s_cmd.line);
     cmd_dispatcher_init(&s_cmd.dispatcher, s_table, TABLE_SIZE);
+    cmd_dispatcher_init(&s_cmd.udp_dispatcher, s_table, TABLE_SIZE);
 
     board_command_uart_init();
     uart_init(BOARD_COMMAND_UART, BOARD_PCLK1_HZ, BOARD_COMMAND_BAUD);
@@ -164,6 +173,42 @@ void commands_poll(void)
             /* Line not complete yet. */
         }
     }
+}
+
+size_t commands_handle_datagram(const uint8_t *data, size_t len, char *reply, size_t reply_size)
+{
+    char line[CMD_LINE_MAX + 1U];
+    size_t text_len = len;
+    cmd_outcome_t outcome;
+
+    /* One command per datagram; a trailing CR/LF is allowed, as on the UART. */
+    while ((text_len > 0U) && ((data[text_len - 1U] == (uint8_t)'\r') ||
+                               (data[text_len - 1U] == (uint8_t)'\n')))
+    {
+        text_len--;
+    }
+
+    if (text_len > CMD_LINE_MAX)
+    {
+        outcome = cmd_dispatch_too_long(&s_cmd.udp_response);
+        record_outcome(" udp", "(datagram too long)", outcome);
+    }
+    else
+    {
+        (void)memcpy(line, data, text_len);
+        line[text_len] = '\0';
+        outcome = cmd_dispatch_line(&s_cmd.udp_dispatcher, line, &s_cmd.udp_response);
+        record_outcome(" udp", line, outcome);
+    }
+
+    /* Replies are sent without the line ending, which a datagram does not need. */
+    const size_t reply_len = s_cmd.udp_response.len - 2U;
+    if (reply_len > reply_size)
+    {
+        return 0U;
+    }
+    (void)memcpy(reply, s_cmd.udp_response.buf, reply_len);
+    return reply_len;
 }
 
 void commands_report(void)

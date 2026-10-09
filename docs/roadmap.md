@@ -20,9 +20,10 @@ Total duration: about **6 weeks**, in 7 phases. Each phase ends with a milestone
 - [x] Write the SPI driver and record flight data to the MT25Q flash at 10 Hz
 - [x] Write the UART command parser for Node B, with host unit tests
 - [x] Add Node B and set up CAN communication between the two nodes
-- [ ] Send UDP telemetry from Node B with lwIP and check it in Wireshark
+- [x] Send UDP telemetry from Node B with lwIP and check it on the wire (Robot packet checks; Wireshark/Python receiver on a TAP link)
 
 **Milestone:** IMU data travels from A to B over CAN, then on to the ground station over UDP.
+✅ Verified by `tests/robot/system_telemetry.robot` and with the Python receiver over a TAP link ([telemetry.md](telemetry.md)).
 
 ## Phase 3 - Plant model and mission scenario (week 3)
 - [ ] Python flight model: progress along the line, wind, sensor noise

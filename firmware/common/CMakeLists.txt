@@ -18,6 +18,7 @@ add_library(voltdragon_common OBJECT
     src/spi.c
     src/startup_stm32f4.c
     src/systick.c
+    src/tlm_msg.c
     src/uart.c)
 
 target_include_directories(voltdragon_common PUBLIC include)

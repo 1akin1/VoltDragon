@@ -13,6 +13,7 @@
 #ifndef COMMANDS_H
 #define COMMANDS_H
 
+#include <stddef.h>
 #include <stdint.h>
 
 #define COMMANDS_TLM_RATE_MIN_HZ        (10UL)
@@ -24,6 +25,13 @@ void commands_init(void);
 
 /** Handles every complete line received so far and sends the responses. Call from the main loop. */
 void commands_poll(void);
+
+/**
+ * Handles one command received over UDP (one command per datagram) and writes
+ * the response, without line ending, into @p reply. Returns its length.
+ * Matches net_command_handler_t.
+ */
+size_t commands_handle_datagram(const uint8_t *data, size_t len, char *reply, size_t reply_size);
 
 /** Logs receive errors (UART overruns, buffer overflows) if any occurred since the last report. */
 void commands_report(void);

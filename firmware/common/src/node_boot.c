@@ -18,12 +18,12 @@ static void print_help(void)
     LOG_INFO("debug keys: f=HardFault z=div-by-zero s=invalid-state w=watchdog-hang r=reset ?=help");
 }
 
-void node_boot(const char *node_name, uint32_t watchdog_ms)
+void node_boot(const char *node_name, uint32_t watchdog_ms, board_console_pins_t console_pins)
 {
     /* Read the reset cause first, before anything else can disturb RCC_CSR. */
     reset_info_init();
 
-    board_init();
+    board_init(console_pins);
     uart_init(BOARD_CONSOLE_UART, BOARD_PCLK1_HZ, BOARD_CONSOLE_BAUD);
     log_init(BOARD_CONSOLE_UART);
     systick_init(BOARD_SYSCLK_HZ);

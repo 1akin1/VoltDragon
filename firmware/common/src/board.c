@@ -6,6 +6,8 @@
 
 #define CONSOLE_TX_PIN  (2U)
 #define CONSOLE_RX_PIN  (3U)
+#define CONSOLE_ALT_TX_PIN  (5U)
+#define CONSOLE_ALT_RX_PIN  (6U)
 #define CAN_RX_PIN      (8U)
 #define CAN_TX_PIN      (9U)
 #define COMMAND_TX_PIN  (10U)
@@ -20,6 +22,7 @@
 #define GPIO_AF5_SPI    (5UL)
 #define GPIO_AF7_USART  (7UL)
 #define GPIO_AF9_CAN    (9UL)
+#define GPIO_AF11_ETH   (11UL)
 
 static void gpio_set_alternate(gpio_regs_t *port, uint32_t pin, uint32_t af)
 {
@@ -46,15 +49,23 @@ static void gpio_set_output(gpio_regs_t *port, uint32_t pin)
     port->MODER = (port->MODER & ~(3UL << mode_shift)) | (GPIO_MODE_OUTPUT << mode_shift);
 }
 
-void board_init(void)
+void board_init(board_console_pins_t console_pins)
 {
-    RCC->AHB1ENR |= RCC_AHB1ENR_GPIOAEN;
+    RCC->AHB1ENR |= RCC_AHB1ENR_GPIOAEN | RCC_AHB1ENR_GPIODEN;
     RCC->APB1ENR |= RCC_APB1ENR_USART2EN;
     /* Read back so the clock is running before the peripheral is touched. */
     (void)RCC->APB1ENR;
 
-    gpio_set_alternate(GPIOA, CONSOLE_TX_PIN, GPIO_AF7_USART);
-    gpio_set_alternate(GPIOA, CONSOLE_RX_PIN, GPIO_AF7_USART);
+    if (console_pins == BOARD_CONSOLE_PD5_PD6)
+    {
+        gpio_set_alternate(GPIOD, CONSOLE_ALT_TX_PIN, GPIO_AF7_USART);
+        gpio_set_alternate(GPIOD, CONSOLE_ALT_RX_PIN, GPIO_AF7_USART);
+    }
+    else
+    {
+        gpio_set_alternate(GPIOA, CONSOLE_TX_PIN, GPIO_AF7_USART);
+        gpio_set_alternate(GPIOA, CONSOLE_RX_PIN, GPIO_AF7_USART);
+    }
 }
 
 void board_command_uart_init(void)
@@ -75,6 +86,44 @@ void board_can_init(void)
 
     gpio_set_alternate(GPIOB, CAN_RX_PIN, GPIO_AF9_CAN);
     gpio_set_alternate(GPIOB, CAN_TX_PIN, GPIO_AF9_CAN);
+}
+
+typedef struct
+{
+    gpio_regs_t *port;
+    uint32_t     pin;
+} pin_t;
+
+void board_eth_init(void)
+{
+    static const pin_t rmii_pins[] = {
+        { GPIOA, 1U },  /* REF_CLK */
+        { GPIOA, 2U },  /* MDIO */
+        { GPIOA, 7U },  /* CRS_DV */
+        { GPIOC, 1U },  /* MDC */
+        { GPIOC, 4U },  /* RXD0 */
+        { GPIOC, 5U },  /* RXD1 */
+        { GPIOG, 11U }, /* TX_EN */
+        { GPIOG, 13U }, /* TXD0 */
+        { GPIOG, 14U }, /* TXD1 */
+    };
+
+    RCC->AHB1ENR |= RCC_AHB1ENR_GPIOAEN | RCC_AHB1ENR_GPIOCEN | RCC_AHB1ENR_GPIOGEN;
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+    (void)RCC->APB2ENR;
+
+    /* The interface type is latched while the MAC is in reset (RM0090 section 33.4.4). */
+    RCC->AHB1RSTR |= RCC_AHB1RSTR_ETHMACRST;
+    SYSCFG_PMC |= SYSCFG_PMC_MII_RMII_SEL;
+    RCC->AHB1RSTR &= ~RCC_AHB1RSTR_ETHMACRST;
+
+    for (uint32_t i = 0U; i < (sizeof(rmii_pins) / sizeof(rmii_pins[0])); ++i)
+    {
+        gpio_set_alternate(rmii_pins[i].port, rmii_pins[i].pin, GPIO_AF11_ETH);
+    }
+
+    RCC->AHB1ENR |= RCC_AHB1ENR_ETHMACEN | RCC_AHB1ENR_ETHMACTXEN | RCC_AHB1ENR_ETHMACRXEN;
+    (void)RCC->AHB1ENR;
 }
 
 void board_sensor_bus_init(void)

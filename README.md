@@ -38,12 +38,13 @@ flowchart TB
 | `cmake/` | Cross-compilation toolchain file |
 | `renode/` | Renode platform and start-up scripts |
 | `sim/plant` | Python plant model |
-| `ground_station/` | Python ground station |
+| `ground_station/` | Python ground station: telemetry receiver and command tool |
+| `third_party/lwip` | lwIP 2.2.1 TCP/IP stack (git submodule) |
 | `tests/robot` | Robot Framework system tests (Renode) |
 | `tests/unit` | Host unit tests for hardware-independent firmware modules (ctest) |
 | `tests/python` | pytest unit tests |
 | `tools/gdb` | GDB helpers (fault-frame decoding) |
-| `docs/` | [Roadmap](docs/roadmap.md), [HLR](docs/requirements/HLR.md), [LLR](docs/requirements/LLR.md), [debugging](docs/debugging.md), [command interface](docs/command-interface.md), [CAN messages](docs/can-messages.md), [MISRA deviations](docs/misra-deviations.md) |
+| `docs/` | [Roadmap](docs/roadmap.md), [HLR](docs/requirements/HLR.md), [LLR](docs/requirements/LLR.md), [debugging](docs/debugging.md), [command interface](docs/command-interface.md), [CAN messages](docs/can-messages.md), [telemetry](docs/telemetry.md), [MISRA deviations](docs/misra-deviations.md) |
 
 ## Building
 
@@ -51,6 +52,10 @@ Prerequisites: `arm-none-eabi-gcc`, CMake 3.20 or newer, Ninja, Python 3.11 or n
 and Renode 1.17. Development is done on Linux (WSL on Windows).
 
 ```sh
+# Get the sources, including the lwIP submodule
+git clone --recurse-submodules <repository-url>
+# (or, in an existing clone: git submodule update --init)
+
 # Firmware
 cmake --preset debug
 cmake --build --preset debug
@@ -60,6 +65,9 @@ renode renode/node_a.resc
 
 # Run both nodes on a shared CAN bus
 renode renode/system.resc
+
+# Both nodes plus a real ground station link over a TAP interface (see docs/telemetry.md)
+sudo renode renode/ground_link.resc
 
 # Host unit tests for hardware-independent firmware modules (native gcc)
 cmake --preset host-tests
@@ -81,12 +89,19 @@ pytest
 Phase 1 complete: bare-metal Node A with its own startup code, linker script,
 register-level UART, watchdog, fault handler and a reset record that survives resets.
 
-Phase 2 in progress: Node A reads an LSM9DS1 IMU over a register-level I2C driver
-at 100 Hz and records flight data at 10 Hz to an MT25Q SPI flash, without ever
-waiting for the flash in the main loop. Node B accepts operator commands on its
-own UART with checksummed, acknowledged frames ([command interface](docs/command-interface.md)).
-Node A sends its sensor and status data to Node B over CAN at 50 Hz, each frame
-protected by a sequence counter and an end-to-end CRC ([CAN messages](docs/can-messages.md)). See the [roadmap](docs/roadmap.md).
+Phase 2 complete: IMU data travels from Node A over CAN to Node B, and on to the
+ground station over UDP.
+
+- Node A reads an LSM9DS1 IMU over a register-level I2C driver at 100 Hz and
+  records flight data at 10 Hz to an MT25Q SPI flash, without ever waiting for the
+  flash in the main loop.
+- Node A sends its sensor and status data to Node B over CAN at 50 Hz, each frame
+  protected by a sequence counter and an end-to-end CRC ([CAN messages](docs/can-messages.md)).
+- Node B broadcasts CRC-protected UDP telemetry through lwIP on its own Ethernet
+  driver, and accepts checksummed, acknowledged operator commands over UART and
+  UDP ([telemetry](docs/telemetry.md), [command interface](docs/command-interface.md)).
+
+See the [roadmap](docs/roadmap.md).
 
 ## Limitations: to be verified in the hardware phase
 
@@ -96,5 +111,7 @@ LSM9DS1 model scales its outputs by ideal counts per unit rather than the datash
 sensitivities, so the firmware reads the gyroscope 5 % and the magnetometer 14.7 % high
 in simulation (see [node_a_imu.robot](tests/robot/node_a_imu.robot)). Timing figures such as interrupt latency and
 inference time do not reflect real hardware. Electrical concerns (I2C pull-ups, CAN
-termination, signal integrity) are not simulated. These items must be verified once
-the firmware runs on a real board.
+termination, signal integrity) are not simulated. The STM32F4 Ethernet MAC needs an
+AHB clock of at least 25 MHz, but both nodes run from the 16 MHz HSI; Node B needs
+the PLL enabled (and the clock-dependent settings updated) before its Ethernet can
+work on silicon. These items must be verified once the firmware runs on a real board.

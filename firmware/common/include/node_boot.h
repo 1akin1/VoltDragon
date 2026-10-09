@@ -7,6 +7,8 @@
 
 #include <stdint.h>
 
+#include "board.h"
+
 /** Returned by node_debug_console_poll() when there is no key for the node to handle. */
 #define NODE_KEY_NONE ((char)0)
 
@@ -14,10 +16,11 @@
  * Brings up the board, console and time base, reports the reset cause, the
  * reset counter and any fault from the previous run, then starts the watchdog.
  *
- * @param node_name    Name printed in the boot banner.
- * @param watchdog_ms  Nominal watchdog timeout in milliseconds.
+ * @param node_name     Name printed in the boot banner.
+ * @param watchdog_ms   Nominal watchdog timeout in milliseconds.
+ * @param console_pins  Pins of this node's debug console.
  */
-void node_boot(const char *node_name, uint32_t watchdog_ms);
+void node_boot(const char *node_name, uint32_t watchdog_ms, board_console_pins_t console_pins);
 
 /**
  * Polls the console for single-key debug commands. Call from the main loop.

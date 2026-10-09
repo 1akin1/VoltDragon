@@ -110,12 +110,20 @@ _Static_assert(offsetof(rcc_regs_t, CSR) == 0x74U, "RCC layout");
 
 #define RCC_AHB1ENR_GPIOAEN     (1UL << 0)
 #define RCC_AHB1ENR_GPIOBEN     (1UL << 1)
+#define RCC_AHB1ENR_GPIOCEN     (1UL << 2)
+#define RCC_AHB1ENR_GPIODEN     (1UL << 3)
+#define RCC_AHB1ENR_GPIOGEN     (1UL << 6)
+#define RCC_AHB1ENR_ETHMACEN    (1UL << 25)
+#define RCC_AHB1ENR_ETHMACTXEN  (1UL << 26)
+#define RCC_AHB1ENR_ETHMACRXEN  (1UL << 27)
+#define RCC_AHB1RSTR_ETHMACRST  (1UL << 25)
 #define RCC_APB1ENR_USART2EN    (1UL << 17)
 #define RCC_APB1ENR_USART3EN    (1UL << 18)
 #define RCC_APB1ENR_I2C1EN      (1UL << 21)
 #define RCC_APB1ENR_CAN1EN      (1UL << 25)
 #define RCC_APB1RSTR_I2C1RST    (1UL << 21)
 #define RCC_APB2ENR_SPI1EN      (1UL << 12)
+#define RCC_APB2ENR_SYSCFGEN    (1UL << 14)
 
 #define RCC_CSR_RMVF            (1UL << 24)
 #define RCC_CSR_BORRSTF         (1UL << 25)
@@ -315,6 +323,71 @@ _Static_assert(offsetof(can_regs_t, FILTER) == 0x240U, "CAN layout");
 #define CAN_DLC_MASK            (0xFUL)
 #define CAN_FMR_FINIT           (1UL << 0)
 
+/** Ethernet MAC, the registers used here (RM0090 section 33.8.1). */
+typedef struct
+{
+    volatile uint32_t MACCR;
+    volatile uint32_t MACFFR;
+    volatile uint32_t MACHTHR;
+    volatile uint32_t MACHTLR;
+    volatile uint32_t MACMIIAR;
+    volatile uint32_t MACMIIDR;
+    volatile uint32_t MACFCR;
+    volatile uint32_t MACVLANTR;
+    uint32_t          RESERVED0[2];
+    volatile uint32_t MACRWUFFR;
+    volatile uint32_t MACPMTCSR;
+    uint32_t          RESERVED1;
+    volatile uint32_t MACDBGR;
+    volatile uint32_t MACSR;
+    volatile uint32_t MACIMR;
+    volatile uint32_t MACA0HR;
+    volatile uint32_t MACA0LR;
+} eth_mac_regs_t;
+
+_Static_assert(offsetof(eth_mac_regs_t, MACMIIAR) == 0x10U, "ETH MAC layout");
+_Static_assert(offsetof(eth_mac_regs_t, MACA0HR) == 0x40U, "ETH MAC layout");
+
+/** Ethernet DMA (RM0090 section 33.8.4). */
+typedef struct
+{
+    volatile uint32_t DMABMR;
+    volatile uint32_t DMATPDR;
+    volatile uint32_t DMARPDR;
+    volatile uint32_t DMARDLAR;
+    volatile uint32_t DMATDLAR;
+    volatile uint32_t DMASR;
+    volatile uint32_t DMAOMR;
+    volatile uint32_t DMAIER;
+    volatile uint32_t DMAMFBOCR;
+} eth_dma_regs_t;
+
+_Static_assert(offsetof(eth_dma_regs_t, DMASR) == 0x14U, "ETH DMA layout");
+_Static_assert(offsetof(eth_dma_regs_t, DMAMFBOCR) == 0x20U, "ETH DMA layout");
+
+#define ETH_MACCR_RE            (1UL << 2)
+#define ETH_MACCR_TE            (1UL << 3)
+#define ETH_MACCR_DM            (1UL << 11)
+#define ETH_MACCR_FES           (1UL << 14)
+#define ETH_MACMIIAR_MB         (1UL << 0)
+#define ETH_MACMIIAR_MW         (1UL << 1)
+#define ETH_MACMIIAR_CR_SHIFT   (2U)
+#define ETH_MACMIIAR_MR_SHIFT   (6U)
+#define ETH_MACMIIAR_PA_SHIFT   (11U)
+#define ETH_DMABMR_SR           (1UL << 0)
+#define ETH_DMABMR_PBL_SHIFT    (8U)
+#define ETH_DMASR_TBUS          (1UL << 2)
+#define ETH_DMASR_RBUS          (1UL << 7)
+#define ETH_DMAOMR_SR           (1UL << 1)
+#define ETH_DMAOMR_ST           (1UL << 13)
+#define ETH_DMAOMR_FTF          (1UL << 20)
+#define ETH_DMAOMR_TSF          (1UL << 21)
+#define ETH_DMAOMR_RSF          (1UL << 25)
+
+/** System configuration controller: only PMC is used (RMII selection). */
+#define SYSCFG_PMC              (*(volatile uint32_t *)0x40013804UL)
+#define SYSCFG_PMC_MII_RMII_SEL (1UL << 23)
+
 /** Independent watchdog (0x40003000). */
 typedef struct
 {
@@ -331,6 +404,9 @@ typedef struct
 #define RCC     ((rcc_regs_t *)0x40023800UL)
 #define GPIOA   ((gpio_regs_t *)0x40020000UL)
 #define GPIOB   ((gpio_regs_t *)0x40020400UL)
+#define GPIOC   ((gpio_regs_t *)0x40020800UL)
+#define GPIOD   ((gpio_regs_t *)0x40020C00UL)
+#define GPIOG   ((gpio_regs_t *)0x40021800UL)
 #define USART2  ((usart_regs_t *)0x40004400UL)
 #define USART3  ((usart_regs_t *)0x40004800UL)
 
@@ -338,6 +414,8 @@ typedef struct
 #define USART3_IRQN (39U)
 #define I2C1    ((i2c_regs_t *)0x40005400UL)
 #define CAN1    ((can_regs_t *)0x40006400UL)
+#define ETH_MAC ((eth_mac_regs_t *)0x40028000UL)
+#define ETH_DMA ((eth_dma_regs_t *)0x40029000UL)
 #define SPI1    ((spi_regs_t *)0x40013000UL)
 #define IWDG    ((iwdg_regs_t *)0x40003000UL)
 

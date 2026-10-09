@@ -1,0 +1,11 @@
+// Node B board: the common STM32F407 platform plus the Ethernet PHY on its RMII bus.
+using "./stm32f407.repl"
+
+// 802.3 PHY at MDIO address 0 with the identifier of a Microchip LAN8742A, the
+// PHY on Nucleo-144 boards. Both ends advertise 10/100 half and full duplex,
+// so auto-negotiation settles on 100 Mbit/s full duplex.
+phy: Network.EthernetPhysicalLayer @ ethernet 0
+    Id1: 0x0007
+    Id2: 0xC131
+    AutoNegotiationAdvertisement: 0x01E1
+    AutoNegotiationLinkPartnerBasePageAbility: 0x01E1

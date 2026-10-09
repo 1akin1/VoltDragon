@@ -74,7 +74,7 @@ static void handle_node_key(char key)
 
 int main(void)
 {
-    node_boot("Node A", NODE_A_WATCHDOG_MS);
+    node_boot("Node A", NODE_A_WATCHDOG_MS, BOARD_CONSOLE_PA2_PA3);
     (void)imu_init();
     if (flashlog_init())
     {

@@ -98,3 +98,16 @@ Message layout: [can-messages.md](../can-messages.md).
 | LLR-075 | Node B shall count gaps of 1..127 in each identifier's sequence counter as lost frames, and shall resynchronise without counting on larger or backward jumps and when STATUS shows that Node A restarted. | HLR-013 | `can_msg.c`, `can_rx.c` | Unit: `sequence_tracker_*`; Robot: `Should Count A Lost Frame`, `Should Resynchronise When Node A Restarts` |
 | LLR-076 | Node B shall keep the latest Node A data with the arrival time of the last valid frame, and report frame counts, error counts and data age once per second and through the `CAN` command. | HLR-010, HLR-014 | `can_rx.c`, `commands.c` | `Should Deliver Node A Data To Node B At 50 Hz`, `Should Report Link Statistics On The Command Interface`, `Should Report No Data Without Node A` |
 | LLR-077 | Node A shall provide debug-console fault injection for the CAN link: wrong CRC, skipped sequence number and a foreign identifier. | (derived) | `can_tx.c`, `main.c` | `system_can.robot` fault tests |
+
+## Network and telemetry (Node B)
+
+Packet layout and network settings: [telemetry.md](../telemetry.md).
+
+| ID | Requirement | Parent | Code | Test |
+|----|-------------|--------|------|------|
+| LLR-080 | Node B shall use the Ethernet MAC over RMII with an 802.3 PHY at MDIO address 0. Every MDIO and DMA reset wait shall be bounded, and a missing PHY shall be logged with the node continuing without network. | HLR-012 | `board.c`, `eth.c`, `net.c` | `Should Keep Running Without Ethernet` |
+| LLR-081 | Node B shall bring up the link from the main loop by polling the PHY every 100 ms, and shall configure the MAC for the speed and duplex common to both link partners. | HLR-012 | `eth.c`, `net.c` | All `system_telemetry.robot` tests (100 Mbit/s full duplex) |
+| LLR-082 | Node B shall run lwIP without an operating system (IPv4, ARP, ICMP, UDP) with the static address 192.168.10.2/24. | HLR-012 | `net.c`, `lwipopts.h` | `Should Answer Commands Over Udp` |
+| LLR-083 | Node B shall broadcast a 60-byte telemetry packet to UDP port 5600 at the rate set by `TLM_RATE` (10 Hz default), carrying Node A's latest data, its age and freshness, both nodes' uptime and reset counts and the CAN link counters. | HLR-012 | `telemetry.c`, `tlm_msg.c` | `Should Broadcast Telemetry At 10 Hz`, `Should Carry Node A Imu Data To The Ground Station`, `Should Flag Fresh Node A Data`, `Should Change The Telemetry Rate On Command` |
+| LLR-084 | Every telemetry packet shall carry a magic number, a version, a sequence number that advances per packet sent, and a CRC-32 over the rest of the packet. | HLR-013 | `tlm_msg.c` | Unit: `test_tlm_msg`; pytest: `test_telemetry.py` (same reference packet) |
+| LLR-085 | Node B shall accept operator commands on UDP port 5601, one frame per datagram, process them like UART commands with a separate retransmission cache, and send each reply to the sender. | HLR-014 | `net.c`, `commands.c` | `Should Answer Commands Over Udp`, `Should Reject A Corrupted Udp Command` |

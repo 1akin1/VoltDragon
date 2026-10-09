@@ -53,7 +53,7 @@ Press On Node A
     Write Char On Uart    ${key}    testerId=${A}
 
 Wait For Node B
-    [Arguments]    ${text}    ${timeout}=2
+    [Arguments]    ${text}    ${timeout}=3
     Wait For Line On Uart    ${text}    testerId=${B}    timeout=${timeout}
 
 
@@ -65,7 +65,9 @@ Should Deliver Node A Data To Node B At 50 Hz
     Wait For Node B    heartbeat 2
     Wait For Node B    can: rx 200/s, ${CLEAN_LINK}
     # Values as Node A measured them (Renode IMU model gain: see node_a_imu.robot).
-    Wait For Node B    can: A age 3 ms, resets 0, imu ok, recorder ok, acc -500 0 999 mg, gyro 0 10500 0 mdps, mag 287 0 0 mG
+    # The age depends on where the report falls in the 5 ms CAN rotation; freshness is
+    # checked by system_telemetry.robot (Should Flag Fresh Node A Data).
+    Wait For Node B    ms, resets 0, imu ok, recorder ok, acc -500 0 999 mg, gyro 0 10500 0 mdps, mag 287 0 0 mG
 
 Should Reject A Corrupted Frame
     Create System

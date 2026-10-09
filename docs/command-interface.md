@@ -1,9 +1,14 @@
 # Operator command interface
 
 Interface control document for the operator commands accepted by Node B
-(HLR-014). The same frames will be carried over UDP once networking is added;
-today they arrive on Node B's **USART3** (PB10 TX / PB11 RX, 115200 baud, 8N1).
-The debug console on USART2 is separate and unaffected.
+(HLR-014). The same frames arrive on two transports:
+
+- **USART3** (PB10 TX / PB11 RX, 115200 baud, 8N1), one frame per line;
+- **UDP port 5601** on 192.168.10.2, one frame per datagram, with the reply
+  sent back to the sender (see [telemetry.md](telemetry.md)).
+
+Each transport has its own retransmission cache. The debug console on USART2
+is separate and unaffected.
 
 Implementation: [`cmd_protocol.c`](../firmware/common/src/cmd_protocol.c),
 [`cmd_dispatch.c`](../firmware/common/src/cmd_dispatch.c),

@@ -13,6 +13,8 @@ jobs:
         preset: [debug, release]
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: true
 
       - name: Install toolchain
         run: |
@@ -61,6 +63,8 @@ jobs:
       RENODE_VERSION: "1.17.0"
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: true
 
       - name: Install toolchain
         run: |
