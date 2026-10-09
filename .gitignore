@@ -1,0 +1,33 @@
+# Build output
+build/
+*.elf
+*.bin
+*.hex
+*.map
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# Renode / Robot Framework output
+*.log
+log.html
+output.xml
+robot_output.xml
+report.html
+
+# Editors / OS
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
+
+# Original Turkish planning document (kept locally, not part of the repo)
+*Yol Haritas*.pdf
+
+# Renode test failure snapshots
+snapshots/

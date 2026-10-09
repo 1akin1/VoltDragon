@@ -1,0 +1,88 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  firmware:
+    name: Firmware build (${{ matrix.preset }})
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        preset: [debug, release]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            gcc-arm-none-eabi libnewlib-arm-none-eabi cmake ninja-build
+
+      - name: Configure
+        run: cmake --preset ${{ matrix.preset }}
+
+      - name: Build
+        run: cmake --build --preset ${{ matrix.preset }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: firmware-${{ matrix.preset }}
+          path: |
+            build/${{ matrix.preset }}/firmware/**/*.elf
+            build/${{ matrix.preset }}/firmware/**/*.bin
+            build/${{ matrix.preset }}/firmware/**/*.map
+
+  renode-tests:
+    name: Renode system tests
+    runs-on: ubuntu-24.04
+    env:
+      RENODE_VERSION: "1.17.0"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends             gcc-arm-none-eabi libnewlib-arm-none-eabi cmake ninja-build
+
+      - name: Build firmware
+        run: |
+          cmake --preset debug
+          cmake --build --preset debug
+
+      - name: Install Renode
+        run: |
+          mkdir -p "$RUNNER_TEMP/renode"
+          wget -qO- "https://github.com/renode/renode/releases/download/v${RENODE_VERSION}/renode-${RENODE_VERSION}.linux-portable.tar.gz"             | tar -xz --strip-components=1 -C "$RUNNER_TEMP/renode"
+          pip install -r "$RUNNER_TEMP/renode/tests/requirements.txt"
+          echo "$RUNNER_TEMP/renode" >> "$GITHUB_PATH"
+
+      - name: Run Robot Framework tests
+        run: renode-test -r build/robot tests/robot/*.robot
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: robot-results
+          path: build/robot
+
+  python:
+    name: Python lint and tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: pip install -e ".[dev]"
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Test
+        run: pytest

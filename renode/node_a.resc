@@ -1,0 +1,27 @@
+:name: VoltDragon Node A
+:description: Single STM32F407 node running the Node A firmware.
+:
+: Usage (from the repository root):
+:   renode renode/node_a.resc
+:   renode --console --disable-gui renode/node_a.resc    (headless, UART in log)
+:
+: Override the firmware with:  $bin_a=@path/to/node_a.elf  before including this script.
+
+$bin_a?=$ORIGIN/../build/debug/firmware/node_a/node_a.elf
+
+using sysbus
+mach create "node_a"
+machine LoadPlatformDescription $ORIGIN/stm32f407.repl
+
+# Honour SCB_CCR.DIV_0_TRP so integer division by zero traps as on silicon.
+nvic FilterCcrDiv0Write false
+
+showAnalyzer sysbus.usart2
+
+# A reset (watchdog or SYSRESETREQ) reloads the firmware but keeps RAM, so the
+# .noinit reset record survives just as it does on real hardware.
+macro reset
+"""
+    sysbus LoadELF $bin_a
+"""
+runMacro $reset

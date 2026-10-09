@@ -1,0 +1,7 @@
+// VoltDragon node platform: Renode's STM32F4 model, adjusted to our clock tree.
+using "platforms/cpus/stm32f4.repl"
+
+// The firmware runs from the 16 MHz HSI (no PLL). The stock model clocks
+// SysTick at 72 MHz, which would make the 1 ms tick run 4.5x too fast.
+nvic:
+    systickFrequency: 16000000
