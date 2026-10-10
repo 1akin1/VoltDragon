@@ -2,9 +2,9 @@
  * @file main.c
  * @brief Node A - sensor acquisition and flight control.
  *
- * Boots, reports the reset history, brings up the sensors, the GPS receiver,
- * the flight-data recorder and the CAN link, then hands over to the FreeRTOS
- * tasks (tasks.h) and never returns.
+ * Boots, reports the reset history, brings up the sensors, the vibration
+ * classifier, the GPS receiver, the flight-data recorder and the CAN link,
+ * then hands over to the FreeRTOS tasks (tasks.h) and never returns.
  *
  * Node-specific debug keys:
  *   d  dump the last flight-log records
@@ -22,6 +22,7 @@
 #include "can_tx.h"
 #include "flashlog.h"
 #include "gps.h"
+#include "health.h"
 #include "imu.h"
 #include "log.h"
 #include "nav.h"
@@ -50,6 +51,7 @@ int main(void)
     node_boot("Node A", NODE_A_WATCHDOG_MS, BOARD_CONSOLE_PA2_PA3);
     rtos_log_lock_init();
     (void)imu_init();
+    (void)health_init();
     gps_init();
     nav_init();
     ap_link_init();

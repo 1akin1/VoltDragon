@@ -15,11 +15,24 @@ target_include_directories(freertos SYSTEM PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src/rtos)
 target_link_libraries(freertos PRIVATE target_arch)
 
+# TensorFlow Lite Micro: the vendored subset (third_party/tflite-micro/README.md).
+# TF_LITE_STATIC_MEMORY: no dynamic allocation anywhere in the interpreter.
+set(TFLM_DIR ${PROJECT_SOURCE_DIR}/third_party/tflite-micro)
+file(STRINGS ${TFLM_DIR}/sources.txt TFLM_SOURCES)
+list(TRANSFORM TFLM_SOURCES PREPEND ${TFLM_DIR}/)
+add_library(tflm STATIC ${TFLM_SOURCES})
+target_include_directories(tflm SYSTEM PUBLIC
+    ${TFLM_DIR}
+    ${TFLM_DIR}/third_party/flatbuffers/include)
+target_compile_definitions(tflm PUBLIC TF_LITE_STATIC_MEMORY)
+target_link_libraries(tflm PRIVATE target_arch)
+
 add_executable(node_a
     src/ap_link.c
     src/can_tx.c
     src/flashlog.c
     src/gps.c
+    src/health.c
     src/imu.c
     src/lsm9ds1.c
     src/main.c
@@ -28,11 +41,16 @@ add_executable(node_a
     src/route.c
     src/rtos/rtos_port.c
     src/safety.c
-    src/tasks.c)
+    src/tasks.c
+    src/tflm_port.cc
+    src/vib_alarm.c
+    src/vib_features.c
+    src/vib_model.cc
+    src/vib_model_data.c)
 set_target_properties(node_a PROPERTIES SUFFIX ".elf")
 target_include_directories(node_a PRIVATE src src/rtos)
-# m: single-precision maths (sqrtf, atan2f) for the heading computation.
-target_link_libraries(node_a PRIVATE voltdragon_common freertos m)
+# m: single-precision maths (sqrtf, atan2f, log10f) for the heading and the vibration features.
+target_link_libraries(node_a PRIVATE voltdragon_common freertos tflm m)
 target_link_options(node_a PRIVATE -Wl,-Map=$<TARGET_FILE_DIR:node_a>/node_a.map)
 
 add_custom_command(TARGET node_a POST_BUILD

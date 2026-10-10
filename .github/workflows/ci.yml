@@ -20,7 +20,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            gcc-arm-none-eabi libnewlib-arm-none-eabi cmake ninja-build
+            gcc-arm-none-eabi libnewlib-arm-none-eabi libstdc++-arm-none-eabi-newlib \
+            cmake ninja-build
 
       - name: Configure
         run: cmake --preset ${{ matrix.preset }}
@@ -45,7 +46,7 @@ jobs:
       - name: Install tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends cmake ninja-build
+          sudo apt-get install -y --no-install-recommends cmake ninja-build g++
 
       - name: Configure
         run: cmake --preset host-tests
@@ -69,7 +70,9 @@ jobs:
       - name: Install toolchain
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends             gcc-arm-none-eabi libnewlib-arm-none-eabi cmake ninja-build
+          sudo apt-get install -y --no-install-recommends \
+            gcc-arm-none-eabi libnewlib-arm-none-eabi libstdc++-arm-none-eabi-newlib \
+            cmake ninja-build
 
       - name: Build firmware
         run: |

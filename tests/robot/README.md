@@ -17,6 +17,7 @@ renode-test -r build/robot tests/robot/*.robot
 | `node_a_imu.robot` | LSM9DS1 detection, 100 Hz sampling, sensor values fed through the Renode model, running without an IMU (HLR-007, HLR-010) |
 | `node_a_nav.robot` | GPS (NMEA on UART4): fix parsing, corrupted sentences, no fix; magnetometer heading, disturbance detection and recovery, GPS course fallback (HLR-008, HLR-010) |
 | `node_a_rtos.robot` | FreeRTOS tasks, stack margins, priority inversion with a semaphore and its fix with a mutex, watchdog recovery from a stalled task (HLR-016) |
+| `node_a_ai.robot` | Phase 5: the INT8 vibration classifier on TensorFlow Lite Micro: model loading, nominal classification, a damaged propeller's signature raising the alarm within 2 s and clearing it, alarm records in the flight recorder (HLR-009, HLR-018) |
 | `system_safety.robot` | Phase 4 milestone: proximity warning and avoidance, return home on link loss and on low battery, landing on critical battery, operator mode requests with and without override, LAND being final; driven open loop through the GPS, autopilot and command UARTs (HLR-001 to HLR-006) |
 
 The co-simulated flights, with the plant model driving both nodes and flying

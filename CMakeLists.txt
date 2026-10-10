@@ -3,11 +3,15 @@ cmake_minimum_required(VERSION 3.20)
 project(VoltDragon
     VERSION 0.1.0
     DESCRIPTION "Simulated avionics for a power-line inspection UAV"
-    LANGUAGES C ASM)
+    LANGUAGES C CXX ASM)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
+# C++ only for TensorFlow Lite Micro and Node A's thin wrapper around it.
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Host unit tests replace the firmware build (they need the native compiler, not the cross toolchain).
@@ -27,7 +31,9 @@ target_compile_options(target_arch INTERFACE
     ${MCU_FLAGS}
     -ffunction-sections -fdata-sections
     $<$<CONFIG:Debug>:-Og -g3>
-    $<$<CONFIG:Release>:-O2 -g>)
+    $<$<CONFIG:Release>:-O2 -g>
+    # No exceptions, RTTI or run-time static initialisation in embedded C++.
+    $<$<COMPILE_LANGUAGE:CXX>:-fno-exceptions -fno-rtti -fno-threadsafe-statics -fno-use-cxa-atexit>)
 target_link_options(target_arch INTERFACE
     ${MCU_FLAGS}
     -Wl,--gc-sections

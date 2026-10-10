@@ -39,6 +39,10 @@ typedef struct
     vib_class_t alarm;          /**< VIB_CLASS_NOMINAL: no alarm. */
 } vib_alarm_t;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void vib_alarm_init(vib_alarm_t *a);
 
 /** Adds one window's class and returns the alarm (VIB_CLASS_NOMINAL when none). */
@@ -46,5 +50,9 @@ vib_class_t vib_alarm_update(vib_alarm_t *a, vib_class_t predicted);
 
 /** Short name of a class: "nominal", "imbalance", "bearing". */
 const char *vib_class_name(vib_class_t c);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* VIB_ALARM_H */

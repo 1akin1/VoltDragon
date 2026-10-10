@@ -41,6 +41,10 @@ typedef struct
     uint32_t      since_window; /**< Samples since the last complete window. */
 } vib_window_t;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void vib_window_init(vib_window_t *w);
 
 /**
@@ -54,5 +58,9 @@ void vib_window_copy(const vib_window_t *w, vib_samples_t out);
 
 /** Computes the VIB_FEATURES features of a window, axis by axis, band by band. */
 void vib_features(const vib_samples_t window, float features[VIB_FEATURES]);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* VIB_FEATURES_H */

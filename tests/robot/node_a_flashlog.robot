@@ -68,7 +68,8 @@ Should Record The Boot And The Imu Data
     Wait For Line On Uart    node A keys
     Run For    0.25
     Dump Log
-    Wait For Line On Uart    log #0 0.001 BOOT cause POWER_ON, count 0
+    # Stamped once initialisation (including loading the vibration model) is done.
+    Wait For Line On Uart    log #0 0\\.00\\d BOOT cause POWER_ON, count 0    treatAsRegex=true
     # IMU records follow every 100 ms; the period starts once initialisation has finished.
     Wait For Line On Uart    log #1 0\\.10\\d IMU acc -500 250 999 mg, gyro 10500 -105000 0 mdps, mag 287 -115 -459 mG    treatAsRegex=true
     Wait For Line On Uart    log #2 0\\.20\\d IMU acc -500 250 999 mg    treatAsRegex=true

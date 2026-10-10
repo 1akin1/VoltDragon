@@ -16,6 +16,10 @@
 
 #include "stm32f4_regs.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /** Selects the UART used for log output. Must be called before logging. */
 void log_init(usart_regs_t *uart);
 
@@ -36,6 +40,10 @@ void log_printf(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
 
 /** Waits until all queued log output has been transmitted. */
 void log_flush(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #define LOG_INFO(...)   log_line('I', __VA_ARGS__)
 #define LOG_WARN(...)   log_line('W', __VA_ARGS__)

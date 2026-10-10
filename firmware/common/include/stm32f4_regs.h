@@ -15,6 +15,11 @@
 #include <stddef.h>
 #include <stdint.h>
 
+/* The layout checks below use C11's _Static_assert; C++ (Node A's TFLM wrapper) spells it differently. */
+#if defined(__cplusplus) && !defined(_Static_assert)
+#define _Static_assert static_assert
+#endif
+
 /* ------------------------------------------------------------------------- */
 /* Cortex-M4 core peripherals                                                */
 /* ------------------------------------------------------------------------- */

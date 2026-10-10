@@ -11,6 +11,7 @@
 #include "can_tx.h"
 #include "flashlog.h"
 #include "gps.h"
+#include "health.h"
 #include "imu.h"
 #include "iwdg.h"
 #include "log.h"
@@ -20,13 +21,17 @@
 #include "systick.h"
 #include "task.h"
 
+/* Rate monotonic: the shorter the period, the higher the priority. LoadTask only runs
+ * for the priority-inversion demo, between LogTask/AiTask and ControlTask. */
 #define PRIORITY_LOG        (1U)
-#define PRIORITY_LOAD       (2U)
-#define PRIORITY_CONTROL    (3U)
-#define PRIORITY_IMU        (4U)
-#define PRIORITY_CAN        (5U)
+#define PRIORITY_AI         (2U)
+#define PRIORITY_LOAD       (3U)
+#define PRIORITY_CONTROL    (4U)
+#define PRIORITY_IMU        (5U)
+#define PRIORITY_CAN        (6U)
 
 #define STACK_WORDS         (512U)
+#define AI_STACK_WORDS      (768U)      /* feature buffers and the TFLM interpreter: uses ~410 */
 
 #define CAN_PERIOD_MS       (CAN_TX_SLOT_MS)
 #define IMU_PERIOD_MS       (IMU_SAMPLE_PERIOD_MS)
@@ -56,6 +61,13 @@ static task_slot_t s_imu_task;
 static task_slot_t s_control_task;
 static task_slot_t s_load_task;
 static task_slot_t s_log_task;
+
+static struct
+{
+    StaticTask_t tcb;
+    StackType_t  stack[AI_STACK_WORDS];
+    TaskHandle_t handle;
+} s_ai_task;
 
 static volatile uint32_t s_alive;
 
@@ -132,6 +144,21 @@ static void can_task(void *arg)
     }
 }
 
+/** Passes the new IMU sample to the vibration monitor and wakes AiTask for a full window. */
+static void feed_health_monitor(void)
+{
+    lsm9ds1_sample_t sample;
+
+    if (!imu_latest(&sample))
+    {
+        health_on_sample_lost();
+    }
+    else if (health_on_sample(&sample))
+    {
+        (void)xTaskNotifyGive(s_ai_task.handle);
+    }
+}
+
 static void imu_task(void *arg)
 {
     TickType_t wake = xTaskGetTickCount();
@@ -140,9 +167,21 @@ static void imu_task(void *arg)
     for (;;)
     {
         imu_sample();
+        feed_health_monitor();
         nav_poll(systick_now_ms());
         mark_alive(ALIVE_IMU);
         (void)xTaskDelayUntil(&wake, pdMS_TO_TICKS(IMU_PERIOD_MS));
+    }
+}
+
+static void ai_task(void *arg)
+{
+    (void)arg;
+    for (;;)
+    {
+        /* ImuTask wakes this task when a window is complete, every 0.32 s. */
+        (void)ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+        health_classify(systick_now_ms());
     }
 }
 
@@ -262,10 +301,11 @@ static void handle_node_key(char key)
 
 static void report_stacks(void)
 {
-    LOG_INFO("rtos: free stack words: can %lu, imu %lu, control %lu, log %lu",
+    LOG_INFO("rtos: free stack words: can %lu, imu %lu, control %lu, ai %lu, log %lu",
              (uint32_t)uxTaskGetStackHighWaterMark(s_can_task.handle),
              (uint32_t)uxTaskGetStackHighWaterMark(s_imu_task.handle),
              (uint32_t)uxTaskGetStackHighWaterMark(s_control_task.handle),
+             (uint32_t)uxTaskGetStackHighWaterMark(s_ai_task.handle),
              (uint32_t)uxTaskGetStackHighWaterMark(s_log_task.handle));
 }
 
@@ -316,6 +356,7 @@ static void log_task(void *arg)
             gps_report(now_ms);
             nav_report();
             safety_report();
+            health_report(now_ms);
             can_tx_report();
             flashlog_report();
             if ((reports % STACK_REPORT_EVERY) == 0U)
@@ -339,6 +380,8 @@ void tasks_create(void)
     create(&s_imu_task, imu_task, "Imu", PRIORITY_IMU);
     create(&s_control_task, control_task, "Control", PRIORITY_CONTROL);
     create(&s_load_task, load_task, "Load", PRIORITY_LOAD);
+    s_ai_task.handle = xTaskCreateStatic(ai_task, "Ai", AI_STACK_WORDS, 0, PRIORITY_AI,
+                                         s_ai_task.stack, &s_ai_task.tcb);
     create(&s_log_task, log_task, "Log", PRIORITY_LOG);
 }
 

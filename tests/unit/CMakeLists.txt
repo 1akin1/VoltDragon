@@ -46,3 +46,27 @@ add_unit_test(test_vib_features
     ${PROJECT_SOURCE_DIR}/firmware/node_a/src/vib_alarm.c)
 target_include_directories(test_vib_features PRIVATE ${PROJECT_SOURCE_DIR}/firmware/node_a/src)
 target_link_libraries(test_vib_features PRIVATE m)
+
+# The INT8 classifier on TensorFlow Lite Micro, built natively from the same vendored sources.
+set(TFLM_DIR ${PROJECT_SOURCE_DIR}/third_party/tflite-micro)
+file(STRINGS ${TFLM_DIR}/sources.txt TFLM_SOURCES)
+list(TRANSFORM TFLM_SOURCES PREPEND ${TFLM_DIR}/)
+add_library(tflm_host STATIC ${TFLM_SOURCES})
+target_include_directories(tflm_host SYSTEM PUBLIC
+    ${TFLM_DIR}
+    ${TFLM_DIR}/third_party/flatbuffers/include)
+target_compile_definitions(tflm_host PUBLIC TF_LITE_STATIC_MEMORY)
+target_compile_options(tflm_host PRIVATE -O1 -fno-exceptions -fno-rtti)
+
+set(NODE_A_SRC ${PROJECT_SOURCE_DIR}/firmware/node_a/src)
+add_executable(test_vib_model test_vib_model.cc
+    ${NODE_A_SRC}/vib_model.cc
+    ${NODE_A_SRC}/vib_model_data.c
+    ${NODE_A_SRC}/vib_features.c
+    ${NODE_A_SRC}/tflm_port.cc)
+target_include_directories(test_vib_model PRIVATE ${NODE_A_SRC})
+# 64-bit pointers make the interpreter's bookkeeping in the arena larger than on Node A.
+target_compile_definitions(test_vib_model PRIVATE VIB_MODEL_ARENA_BYTES=8192U)
+target_compile_options(test_vib_model PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-fno-exceptions -fno-rtti>)
+target_link_libraries(test_vib_model PRIVATE host_options tflm_host m)
+add_test(NAME test_vib_model COMMAND test_vib_model)

@@ -50,8 +50,8 @@ Should Run The Tasks Under FreeRTOS
 
 Should Report Task Stack Margins
     Create Node A
-    # Every tenth report; at least 100 of the 512 stack words left in every task.
-    Expect    rtos: free stack words: can \\d{3}, imu \\d{3}, control \\d{3}, log \\d{3}    timeout=11
+    # Every tenth report; at least 100 stack words left in every task.
+    Expect    rtos: free stack words: can \\d{3}, imu \\d{3}, control \\d{3}, ai \\d{3}, log \\d{3}    timeout=11
 
 Should Show Priority Inversion With A Plain Semaphore
     Create Node A

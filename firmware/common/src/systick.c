@@ -37,6 +37,23 @@ uint32_t systick_now_ms(void)
     return s_ticks_ms;
 }
 
+uint32_t systick_now_us(void)
+{
+    uint32_t ms;
+    uint32_t val;
+
+    /* Re-read if a tick interrupt came between the two reads. */
+    do
+    {
+        ms = s_ticks_ms;
+        val = SYSTICK->VAL;
+    } while (ms != s_ticks_ms);
+
+    /* The counter runs down from LOAD to 0 once per millisecond. */
+    const uint32_t period = SYSTICK->LOAD + 1U;
+    return (ms * 1000U) + (((period - 1U - val) * 1000U) / period);
+}
+
 void systick_delay_ms(uint32_t ms)
 {
     const uint32_t start = systick_now_ms();

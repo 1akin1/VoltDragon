@@ -29,7 +29,8 @@
 typedef enum
 {
     FLASHLOG_TYPE_BOOT = 1,     /**< Payload: flashlog_boot_t */
-    FLASHLOG_TYPE_IMU = 2       /**< Payload: lsm9ds1_sample_t */
+    FLASHLOG_TYPE_IMU = 2,      /**< Payload: lsm9ds1_sample_t */
+    FLASHLOG_TYPE_VIB_ALARM = 3 /**< Payload: flashlog_vib_alarm_t */
 } flashlog_type_t;
 
 /** Payload of a FLASHLOG_TYPE_BOOT record. */
@@ -38,6 +39,15 @@ typedef struct
     uint32_t reset_cause;       /**< reset_cause_t */
     uint32_t reset_count;
 } flashlog_boot_t;
+
+/** Payload of a FLASHLOG_TYPE_VIB_ALARM record: the vibration alarm changed (HLR-009). */
+typedef struct
+{
+    uint8_t  alarm;             /**< vib_class_t: VIB_CLASS_NOMINAL when the alarm clears. */
+    uint8_t  confidence_pct;    /**< Of the window that changed it. */
+    uint16_t reserved;
+    uint32_t windows;           /**< Windows classified so far. */
+} flashlog_vib_alarm_t;
 
 /** Brings up the flash and finds the end of the log. Returns false if the flash is unusable. */
 bool flashlog_init(void);

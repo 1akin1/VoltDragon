@@ -15,6 +15,7 @@
 #include "mt25q.h"
 #include "reset_info.h"
 #include "systick.h"
+#include "vib_alarm.h"
 
 #define RECORD_MAGIC        (0x5644U)
 #define QUEUE_LEN           (FLASHLOG_QUEUE_LEN)
@@ -405,6 +406,15 @@ static void print_record(const record_t *rec)
                  rec->seq, seconds, millis, s.accel_mg[0], s.accel_mg[1], s.accel_mg[2],
                  s.gyro_mdps[0], s.gyro_mdps[1], s.gyro_mdps[2],
                  s.mag_mgauss[0], s.mag_mgauss[1], s.mag_mgauss[2]);
+    }
+    else if ((rec->type == (uint8_t)FLASHLOG_TYPE_VIB_ALARM) &&
+             (rec->length == sizeof(flashlog_vib_alarm_t)))
+    {
+        flashlog_vib_alarm_t a;
+        (void)memcpy(&a, rec->payload, sizeof(a));
+        LOG_INFO("log #%lu %lu.%03lu VIBRATION alarm %s (%u %%) after %lu windows", rec->seq,
+                 seconds, millis, vib_class_name((vib_class_t)a.alarm),
+                 (unsigned int)a.confidence_pct, a.windows);
     }
     else
     {
