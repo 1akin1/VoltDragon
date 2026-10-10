@@ -41,3 +41,8 @@ target_link_libraries(test_route PRIVATE m)
 add_unit_test(test_cmd_dispatch
     ${FIRMWARE_COMMON}/src/cmd_dispatch.c
     ${FIRMWARE_COMMON}/src/cmd_protocol.c)
+add_unit_test(test_vib_features
+    ${PROJECT_SOURCE_DIR}/firmware/node_a/src/vib_features.c
+    ${PROJECT_SOURCE_DIR}/firmware/node_a/src/vib_alarm.c)
+target_include_directories(test_vib_features PRIVATE ${PROJECT_SOURCE_DIR}/firmware/node_a/src)
+target_link_libraries(test_vib_features PRIVATE m)

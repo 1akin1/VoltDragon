@@ -1,0 +1,157 @@
+{
+  "tensorflow": "2.18.1",
+  "python": "3.11.2",
+  "parameters": 1955,
+  "size": {
+    "fp32": 9928,
+    "int8": 5808
+  },
+  "data": {
+    "flights": 400,
+    "flight_s": 60.0,
+    "seed": 1,
+    "sets": {
+      "training": {
+        "flights": 280,
+        "windows": 51897,
+        "per_class": [
+          32947,
+          9711,
+          9239
+        ]
+      },
+      "validation": {
+        "flights": 60,
+        "windows": 11117,
+        "per_class": [
+          6549,
+          2652,
+          1916
+        ]
+      },
+      "test": {
+        "flights": 60,
+        "windows": 11124,
+        "per_class": [
+          8012,
+          1812,
+          1300
+        ]
+      }
+    }
+  },
+  "input_quantization": [
+    0.040285635739564896,
+    20.0
+  ],
+  "output_quantization": [
+    0.00390625,
+    -128.0
+  ],
+  "fp32": {
+    "accuracy": 0.9998202085580726,
+    "recall": {
+      "nominal": 1.0,
+      "imbalance": 0.9988962472406181,
+      "bearing": 1.0
+    },
+    "precision": {
+      "nominal": 0.9997504367357125,
+      "imbalance": 1.0,
+      "bearing": 1.0
+    },
+    "confusion": [
+      [
+        8012,
+        0,
+        0
+      ],
+      [
+        2,
+        1810,
+        0
+      ],
+      [
+        0,
+        0,
+        1300
+      ]
+    ]
+  },
+  "int8": {
+    "accuracy": 0.9998202085580726,
+    "recall": {
+      "nominal": 1.0,
+      "imbalance": 0.9988962472406181,
+      "bearing": 1.0
+    },
+    "precision": {
+      "nominal": 0.9997504367357125,
+      "imbalance": 1.0,
+      "bearing": 1.0
+    },
+    "confusion": [
+      [
+        8012,
+        0,
+        0
+      ],
+      [
+        2,
+        1810,
+        0
+      ],
+      [
+        0,
+        0,
+        1300
+      ]
+    ]
+  },
+  "agreement": {
+    "same_class": 1.0,
+    "max_probability_diff": 0.10999667644500732,
+    "mean_probability_diff": 0.0013256226666271687
+  },
+  "alarm_fp32": {
+    "fault_flights": 36,
+    "detected": 36,
+    "missed": 0,
+    "missed_with_wrong_class": 0,
+    "latency_s": {
+      "median": 0.9334735870361328,
+      "p95": 1.119905710220337,
+      "max": 1.2090873718261719
+    },
+    "false_alarms": 0,
+    "fault_free_hours": 0.7070528765736671
+  },
+  "alarm_int8": {
+    "fault_flights": 36,
+    "detected": 36,
+    "missed": 0,
+    "missed_with_wrong_class": 0,
+    "latency_s": {
+      "median": 0.9334735870361328,
+      "p95": 1.119905710220337,
+      "max": 1.2090873718261719
+    },
+    "false_alarms": 0,
+    "fault_free_hours": 0.7070528765736671
+  },
+  "soak_int8": {
+    "fault_flights": 0,
+    "detected": 0,
+    "missed": 0,
+    "missed_with_wrong_class": 0,
+    "latency_s": {
+      "median": NaN,
+      "p95": NaN,
+      "max": NaN
+    },
+    "false_alarms": 0,
+    "fault_free_hours": 2.9840000003576277
+  },
+  "soak_window_errors_int8": 0,
+  "soak_windows": 33660
+}

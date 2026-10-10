@@ -11,7 +11,7 @@ LSB quantisation, clipped at the configured full-scale ranges), so the
 features are computed from the same numbers as on the MCU.
 
 Usage (needs numpy):
-    python -m ml.dataset [--flights 240] [--duration 40] [--seed 1] [--out build/ml/dataset.npz]
+    python -m ml.dataset [--flights 400] [--duration 60] [--seed 1] [--out build/ml/dataset.npz]
 
 The file holds, per 100 Hz sample: flight index, time, accel (mg) and gyro
 (mdps) as int32, the label (index into sim.plant.vibration.CLASSES) and
@@ -23,6 +23,7 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import json
+import multiprocessing
 import random
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
@@ -42,6 +43,11 @@ GYRO_LSB_MDPS = 8.75
 ACCEL_RANGE_MG = 2000.0
 GYRO_RANGE_MDPS = 245000.0
 
+# The smallest fault the classifier is meant to detect: at 0.3 a damaged propeller adds
+# 0.075 g at hover, three times the roughest healthy rotor's residual imbalance. Weaker
+# faults overlap with a healthy airframe whose rotors happen to beat in phase.
+MIN_SEVERITY = 0.3
+
 
 def to_firmware_units(values: np.ndarray, lsb: float, full_scale: float) -> np.ndarray:
     """Clips like the co-simulation (sim/cosim.py), quantises to the sensor's LSB, then
@@ -51,7 +57,9 @@ def to_firmware_units(values: np.ndarray, lsb: float, full_scale: float) -> np.n
     return np.trunc(counts * lsb).astype(np.int32)
 
 
-def flight_scenario(index: int, seed: int, duration_s: float) -> tuple[Scenario, dict]:
+def flight_scenario(
+    index: int, seed: int, duration_s: float, fault_free: bool = False
+) -> tuple[Scenario, dict]:
     rng = random.Random(seed * 100_003 + index)
     hover = rng.random() < 0.15
     plan = FlightPlan(
@@ -61,12 +69,14 @@ def flight_scenario(index: int, seed: int, duration_s: float) -> tuple[Scenario,
         start_s_m=rng.uniform(0.0, 300.0),
     )
     kind = rng.choice((None, *KINDS))
+    if fault_free:
+        kind = None
     fault = None
     if kind is not None:
         fault = VibrationFault(
             kind=kind,
             onset_s=rng.uniform(5.0, duration_s - 10.0),
-            severity=rng.uniform(0.2, 1.2),
+            severity=rng.uniform(MIN_SEVERITY, 1.2),
             rotor=rng.randrange(4),
         )
     wind = {
@@ -93,8 +103,10 @@ def flight_scenario(index: int, seed: int, duration_s: float) -> tuple[Scenario,
     return scenario, meta
 
 
-def fly(index: int, seed: int, duration_s: float) -> tuple[dict, dict[str, np.ndarray]]:
-    scenario, meta = flight_scenario(index, seed, duration_s)
+def fly(
+    index: int, seed: int, duration_s: float, fault_free: bool = False
+) -> tuple[dict, dict[str, np.ndarray]]:
+    scenario, meta = flight_scenario(index, seed, duration_s, fault_free)
     plant = Plant(scenario)
     w = meta["wind"]
     plant.vehicle.wind = Wind(
@@ -115,9 +127,21 @@ def fly(index: int, seed: int, duration_s: float) -> tuple[dict, dict[str, np.nd
     return meta, arrays
 
 
-def collect(flights: int, duration_s: float, seed: int, workers: int | None = None) -> dict:
-    with ProcessPoolExecutor(max_workers=workers) as pool:
-        results = list(pool.map(fly, range(flights), [seed] * flights, [duration_s] * flights))
+def collect(
+    flights: int,
+    duration_s: float,
+    seed: int,
+    workers: int | None = None,
+    fault_free: bool = False,
+) -> dict:
+    """Flies @flights flights in parallel; @fault_free leaves every flight healthy."""
+    # Spawned workers: forking a process that has loaded TensorFlow (ml.train) can hang.
+    context = multiprocessing.get_context("spawn")
+    with ProcessPoolExecutor(max_workers=workers, mp_context=context) as pool:
+        results = list(pool.map(
+            fly, range(flights), [seed] * flights, [duration_s] * flights,
+            [fault_free] * flights,
+        ))
     metas = [m for m, _ in results]
     data = {
         key: np.concatenate([a[key] for _, a in results]) for key in results[0][1]
@@ -127,13 +151,14 @@ def collect(flights: int, duration_s: float, seed: int, workers: int | None = No
     )
     data["meta"] = np.array(json.dumps(metas))
     data["classes"] = np.array(CLASSES)
+    data["seed"] = np.array(seed)
     return data
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--flights", type=int, default=240)
-    parser.add_argument("--duration", type=float, default=40.0, help="seconds per flight")
+    parser.add_argument("--flights", type=int, default=400)
+    parser.add_argument("--duration", type=float, default=60.0, help="seconds per flight")
     parser.add_argument("--seed", type=int, default=1)
     parser.add_argument("--workers", type=int, default=None)
     parser.add_argument("--out", type=Path, default=REPO / "build" / "ml" / "dataset.npz")
