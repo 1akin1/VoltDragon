@@ -2,10 +2,10 @@
  * @file tlm_msg.h
  * @brief Telemetry packet sent by Node B to the ground station over UDP (HLR-012, HLR-013).
  *
- * Fixed 88-byte little-endian packet, version 3 (see docs/telemetry.md):
+ * Fixed 88-byte little-endian packet, version 4 (see docs/telemetry.md):
  *
  *     0  "VDTM" magic          42  GPS satellites
- *     4  version (2)           43  GPS fix quality
+ *     4  version (4)           43  GPS fix quality
  *     5  flags                 44  CAN frames valid
  *     6  length (80)           48  CAN frames rejected
  *     8  sequence number       52  CAN frames lost
@@ -22,7 +22,8 @@
  *                              78  safety flags (CAN SAFETY)
  *                              79  last mode request id
  *                              80  ground link age ms
- *                              82  reserved (0)
+ *                              82  vibration alarm (HLR-009)
+ *                              83  vibration fault score, %
  *                              84  CRC-32 of bytes 0..83
  *
  * No hardware dependencies; unit-tested on the host (tests/unit).
@@ -35,7 +36,7 @@
 #include <stdint.h>
 
 #define TLM_PACKET_LEN          (88U)
-#define TLM_VERSION             (3U)
+#define TLM_VERSION             (4U)
 #define TLM_UNKNOWN_U8          (0xFFU)     /**< Battery or mode not known. */
 #define TLM_UNKNOWN_U16         (0xFFFFU)   /**< Distance not known; ages saturate here. */
 
@@ -46,6 +47,7 @@
 #define TLM_FLAG_MAG_OK         (0x10U)     /**< Magnetometer field within limits. */
 #define TLM_HEADING_SOURCE_SHIFT (5U)       /**< 0 none, 1 magnetometer, 2 GPS course. */
 #define TLM_HEADING_SOURCE_MASK (0x60U)
+#define TLM_FLAG_VIB_ACTIVE     (0x80U)     /**< Node A's vibration monitor is classifying. */
 #define TLM_FRESH_MS            (100UL)
 #define TLM_GPS_FRESH_MS        (1000UL)
 
@@ -79,6 +81,8 @@ typedef struct
     uint8_t  safety_flags;      /**< CANMSG_SAFETY_* as Node A sent them. */
     uint8_t  last_request_id;   /**< Last operator mode request Node A processed. */
     uint16_t ground_link_age_ms; /**< Since the last ground station command; saturates. */
+    uint8_t  vibration_alarm;   /**< CANMSG_VIB_* alarm; TLM_UNKNOWN_U8 before Node A reports it. */
+    uint8_t  fault_score_pct;   /**< 100 minus P(nominal) of the latest window; TLM_UNKNOWN_U8. */
 } tlm_packet_t;
 
 /** Serialises a packet. Returns TLM_PACKET_LEN, or 0 if @p size is too small. */

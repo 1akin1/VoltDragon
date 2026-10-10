@@ -52,6 +52,8 @@ static void build(tlm_packet_t *p, uint32_t now_ms)
     p->distance_dm = TLM_UNKNOWN_U16;
     p->battery_pct = TLM_UNKNOWN_U8;
     p->flight_mode = TLM_UNKNOWN_U8;
+    p->vibration_alarm = TLM_UNKNOWN_U8;
+    p->fault_score_pct = TLM_UNKNOWN_U8;
     if (!have_a)
     {
         p->node_a_age_ms = (uint16_t)U16_MAX;
@@ -117,6 +119,17 @@ static void build(tlm_packet_t *p, uint32_t now_ms)
         p->flight_mode = a.safety.mode;
         p->safety_flags = a.safety.flags;
         p->last_request_id = a.safety.last_request_id;
+    }
+
+    /* Vibration monitor (HLR-009): Node A's alarm and the latest window's fault score. */
+    if (a.any_health)
+    {
+        p->vibration_alarm = a.health.alarm;
+        p->fault_score_pct = a.health.fault_score_pct;
+        if ((a.health.flags & CANMSG_HEALTH_ACTIVE) != 0U)
+        {
+            p->flags |= TLM_FLAG_VIB_ACTIVE;
+        }
     }
 }
 

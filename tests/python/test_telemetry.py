@@ -39,6 +39,8 @@ def test_decodes_reference_packet() -> None:
     assert t.flight_mode == "MISSION"
     assert t.autopilot_ok and not (t.proximity or t.link_lost or t.battery_low)
     assert (t.last_request_id, t.ground_link_age_ms) == (3, 420)
+    assert t.vibration_monitor_active and not t.vibration_fault
+    assert (t.vibration_alarm, t.fault_score_pct) == ("nominal", 2)
 
 
 @pytest.mark.parametrize("index", range(PACKET_LEN))
@@ -59,6 +61,16 @@ def test_unknown_safety_values_decode_as_none() -> None:
     t = replace(decode(REFERENCE), distance_m=None, battery_pct=None, flight_mode=None)
     again = decode(encode(t))
     assert (again.distance_m, again.battery_pct, again.flight_mode) == (None, None, None)
+
+
+def test_vibration_fields_round_trip() -> None:
+    t = replace(decode(REFERENCE), vibration_alarm="bearing", fault_score_pct=97,
+                safety_flags=0x60)
+    again = decode(encode(t))
+    assert (again.vibration_alarm, again.fault_score_pct) == ("bearing", 97)
+    assert again.vibration_fault
+    unknown = decode(encode(replace(t, vibration_alarm=None, fault_score_pct=None)))
+    assert (unknown.vibration_alarm, unknown.fault_score_pct) == (None, None)
 
 
 def test_sequence_monitor_counts_gaps_and_resynchronises() -> None:

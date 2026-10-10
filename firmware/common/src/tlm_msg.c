@@ -98,7 +98,8 @@ size_t tlm_encode(const tlm_packet_t *packet, uint8_t *out, size_t size)
     out[78] = packet->safety_flags;
     out[79] = packet->last_request_id;
     put_u16(&out[80], packet->ground_link_age_ms);
-    /* Bytes 82..83 are reserved and stay zero. */
+    out[82] = packet->vibration_alarm;
+    out[83] = packet->fault_score_pct;
     put_u32(&out[CRC_OFFSET], crc32(out, CRC_OFFSET));
     return TLM_PACKET_LEN;
 }
@@ -140,5 +141,7 @@ bool tlm_decode(const uint8_t *in, size_t len, tlm_packet_t *packet)
     packet->safety_flags = in[78];
     packet->last_request_id = in[79];
     packet->ground_link_age_ms = (uint16_t)get_u16(&in[80]);
+    packet->vibration_alarm = in[82];
+    packet->fault_score_pct = in[83];
     return true;
 }

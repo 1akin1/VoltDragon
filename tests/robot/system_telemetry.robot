@@ -28,8 +28,8 @@ ${ROOT}             ${CURDIR}/../..
 ${ELF_A}            ${ROOT}/build/debug/firmware/node_a/node_a.elf
 ${ELF_B}            ${ROOT}/build/debug/firmware/node_b/node_b.elf
 # Broadcast from Node B (02:00:00:56:44:02) to port 5600: Ethernet, IPv4 (UDP, 108 bytes,
-# 192.168.10.2 -> 192.168.10.255) and UDP (96 bytes), then "VDTM", version 3, any flags, length 88.
-${TELEMETRY_FRAME}  ffffffffffff020000564402080045000074____0000ff11____c0a80a02c0a80aff____15e00060____5644544d03__5800
+# 192.168.10.2 -> 192.168.10.255) and UDP (96 bytes), then "VDTM", version 4, any flags, length 88.
+${TELEMETRY_FRAME}  ffffffffffff020000564402080045000074____0000ff11____c0a80a02c0a80aff____15e00060____5644544d04__5800
 
 
 *** Keywords ***
@@ -38,6 +38,7 @@ Create System
     Execute Command    $bin_b=@${ELF_B}
     Execute Command    include @${ROOT}/renode/system.resc
     Execute Command    include @${ROOT}/renode/ground_station.py
+    Execute Command    include @${ROOT}/renode/plant_feed.py
     # The network interface tester only sees time pass while the emulation runs, so the
     # UART testers must not pause it after a match: the emulation runs throughout the test.
     ${a}=    Create Terminal Tester    sysbus.usart2    machine=node_a
@@ -95,9 +96,10 @@ Should Carry Node A Imu Data To The Ground Station
 Should Flag Fresh Node A Data
     Create System
     Wait For Node B    heartbeat 1
-    # Flags (frame offset 47): Node A data fresh, IMU valid, recorder OK. No GPS here,
-    # and the magnetometer model reads zero, so GPS fix and magnetometer OK are clear.
-    Wait For Frame    5644544d0307    42
+    # Flags (frame offset 47): Node A data fresh, IMU valid, recorder OK, vibration monitor
+    # active. No GPS here, and the magnetometer model reads zero, so GPS fix and
+    # magnetometer OK are clear.
+    Wait For Frame    5644544d0487    42
 
 Should Carry Node A Safety State
     Create System
@@ -105,6 +107,20 @@ Should Carry Node A Safety State
     # Payload offset 74 (frame offset 116): distance unknown (no GPS), battery unknown
     # (no autopilot), mode MISSION, no safety flags set.
     Wait For Frame    ffffff0000    116
+    # Payload offset 82 (frame offset 124): no vibration alarm.
+    Wait For Frame    00    124
+
+Should Carry The Vibration Alarm To The Ground Station
+    Create System
+    Wait For Node B    heartbeat 1
+    # A damaged propeller's signature on Node A's IMU (renode/plant_feed.py).
+    Execute Command    mach set "node_a"
+    Execute Command    vibration_feed "0.25" "4.0" "20" "6"
+    Execute Command    mach clear
+    Wait For Node B    can: Node A VIBRATION FAULT: imbalance    timeout=3
+    # Payload offset 78 (frame offset 120): safety flags with the vibration alarm, request
+    # id, ground link age (none yet: saturated), then the alarm: imbalance (HLR-009).
+    Wait For Frame    40__ffff01    120
 
 Should Change The Telemetry Rate On Command
     Create System

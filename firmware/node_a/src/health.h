@@ -33,6 +33,7 @@ typedef struct
     vib_class_t alarm;              /**< Debounced alarm; VIB_CLASS_NOMINAL when none. */
     vib_class_t last_class;         /**< The latest window's class. */
     uint8_t     confidence_pct;     /**< The latest window's probability of last_class. */
+    uint8_t     fault_score_pct;    /**< 100 minus the latest window's probability of nominal. */
     uint32_t    windows;            /**< Windows classified since start-up. */
     uint32_t    fault_windows;      /**< ... of which classified as a fault. */
     uint32_t    inference_us;       /**< Latest features + inference time. */

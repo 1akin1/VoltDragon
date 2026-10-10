@@ -23,6 +23,7 @@ PROXIMITY_WARNING_M = 12.0      # HLR-002
 MINIMUM_DISTANCE_M = 10.0       # HLR-001
 FIELD_EXPECTED_MG = 500.0       # must match the firmware's NAV_FIELD_MGAUSS
 FIELD_TOLERANCE = 0.15
+VIBRATION_FAULTS = {"imbalance": "damaged propeller", "bearing": "worn motor bearing"}
 
 
 @dataclass(frozen=True)
@@ -46,6 +47,7 @@ class Sample:
     field_mgauss: int
     mag_ok: bool
     alt_m: float
+    fault_score_pct: int | None = None   # vibration classifier, latest window
 
 
 @dataclass
@@ -90,6 +92,7 @@ class GroundState:
                 field_mgauss=packet.field_mgauss,
                 mag_ok=packet.mag_ok,
                 alt_m=packet.alt_msl_m - self.route.origin_alt_m,
+                fault_score_pct=packet.fault_score_pct,
             )
         )
         while self.samples and self.samples[0].t < now - self.history_s:
@@ -178,4 +181,16 @@ def _onboard_alarms(t: Telemetry) -> list[Alarm]:
     if t.proximity:
         distance = "unknown" if t.distance_m is None else f"{t.distance_m:.1f} m"
         found.append(Alarm("AVOIDING", "warning", f"on-board distance {distance}"))
+    found.extend(_vibration_alarms(t))
     return found
+
+
+def _vibration_alarms(t: Telemetry) -> list[Alarm]:
+    """Node A's on-board vibration classifier (HLR-009)."""
+    if t.vibration_fault:
+        kind = VIBRATION_FAULTS.get(t.vibration_alarm or "", "unknown fault")
+        score = "" if t.fault_score_pct is None else f", fault score {t.fault_score_pct} %"
+        return [Alarm("VIBRATION FAULT", "critical", f"{kind}{score}")]
+    if t.node_a_fresh and not t.vibration_monitor_active:
+        return [Alarm("VIBRATION MONITOR INACTIVE", "warning", "no vibration classification")]
+    return []

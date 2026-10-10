@@ -44,11 +44,13 @@ typedef struct
     canmsg_gps_t    gps;
     canmsg_nav_t    nav;
     canmsg_safety_t safety;
+    canmsg_health_t health;
     uint32_t        last_valid_ms;  /**< Arrival time of the last valid frame. */
     uint32_t        gps_ms;         /**< Arrival time of the last GPS position frame. */
     bool            any_valid;
     bool            any_gps;
     bool            any_safety;
+    bool            any_health;
 } can_rx_node_a_t;
 
 /** Joins the CAN bus and installs the acceptance filter. Returns false on failure. */

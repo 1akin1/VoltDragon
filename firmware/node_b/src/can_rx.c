@@ -10,7 +10,7 @@
 #include "log.h"
 
 #define NODE_A_FILTER_BANK  (0U)
-#define NODE_A_MESSAGES     (8U)
+#define NODE_A_MESSAGES     (9U)
 #define U16_MAX             (65535UL)
 
 typedef struct
@@ -56,6 +56,8 @@ static uint32_t message_index(uint16_t id)
             return 6U;
         case CANMSG_ID_A_SAFETY:
             return 7U;
+        case CANMSG_ID_A_HEALTH:
+            return 8U;
         default:
             return NODE_A_MESSAGES;
     }
@@ -75,6 +77,30 @@ static void check_restart(const can_frame_t *frame)
         LOG_WARN("can: Node A restarted (reset count %u)", (unsigned int)status.reset_count);
     }
     s_rx.have_status = true;
+}
+
+/** Keeps Node A's vibration monitor state and logs each change of its alarm as it arrives. */
+static void store_health(const can_frame_t *frame)
+{
+    canmsg_health_t health;
+
+    canmsg_decode_health(frame->data, &health);
+    const uint8_t previous = s_rx.node_a.any_health ? s_rx.node_a.health.alarm
+                                                    : (uint8_t)CANMSG_VIB_NOMINAL;
+    if (health.alarm != previous)
+    {
+        if (health.alarm == CANMSG_VIB_NOMINAL)
+        {
+            LOG_INFO("can: Node A vibration alarm cleared");
+        }
+        else
+        {
+            LOG_WARN("can: Node A VIBRATION FAULT: %s (fault score %u %%)",
+                     canmsg_vib_class_name(health.alarm), (unsigned int)health.fault_score_pct);
+        }
+    }
+    s_rx.node_a.health = health;
+    s_rx.node_a.any_health = true;
 }
 
 static void store(const can_frame_t *frame, uint32_t now_ms)
@@ -105,6 +131,9 @@ static void store(const can_frame_t *frame, uint32_t now_ms)
         case CANMSG_ID_A_SAFETY:
             canmsg_decode_safety(frame->data, &s_rx.node_a.safety);
             s_rx.node_a.any_safety = true;
+            break;
+        case CANMSG_ID_A_HEALTH:
+            store_health(frame);
             break;
         default:
             canmsg_decode_nav(frame->data, &s_rx.node_a.nav);
@@ -301,5 +330,13 @@ void can_rx_report(uint32_t now_ms)
                  flight_mode_name((flight_mode_t)s->mode), (unsigned int)s->distance_dm,
                  (unsigned int)s->battery_pct, (unsigned int)s->flags,
                  can_rx_ground_link_age_ms(now_ms));
+    }
+    if (a->any_health)
+    {
+        const canmsg_health_t *h = &a->health;
+        LOG_INFO("can: A vibration monitor %s, alarm %s, last %s %u %%, fault score %u %%",
+                 ((h->flags & CANMSG_HEALTH_ACTIVE) != 0U) ? "active" : "INACTIVE",
+                 canmsg_vib_class_name(h->alarm), canmsg_vib_class_name(h->last_class),
+                 (unsigned int)h->confidence_pct, (unsigned int)h->fault_score_pct);
     }
 }

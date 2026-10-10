@@ -12,7 +12,7 @@ from sim.plant.route import Route
 from sim.plant.vec import Vec3
 
 ROUTE = Route.load("line_a")
-ALL_OK = 0x01 | 0x02 | 0x04 | 0x08 | 0x10 | (1 << 5)
+ALL_OK = 0x01 | 0x02 | 0x04 | 0x08 | 0x10 | (1 << 5) | 0x80
 
 
 def packet(seq: int, offset_m: float = 20.0, flags: int = ALL_OK, **changes) -> Telemetry:
@@ -95,6 +95,20 @@ def test_onboard_safety_state_raises_alarms() -> None:
     names = [a.name for a in state.alarms(1.1)]
     assert "BATTERY CRITICAL" in names and "BATTERY LOW" not in names
     assert "AUTOPILOT SILENT" in names and "AVOIDING" in names
+
+
+def test_vibration_fault_and_inactive_monitor_raise_alarms() -> None:
+    state = GroundState(ROUTE)
+    state.update(
+        packet(1, safety_flags=0x20 | 0x40, vibration_alarm="imbalance", fault_score_pct=98),
+        now=1.0,
+    )
+    alarms = {a.name: a for a in state.alarms(1.0)}
+    assert alarms["VIBRATION FAULT"].severity == "critical"
+    assert alarms["VIBRATION FAULT"].detail == "damaged propeller, fault score 98 %"
+    assert state.samples[-1].fault_score_pct == 98
+    state.update(packet(2, flags=ALL_OK & ~0x80), now=1.1)
+    assert [a.name for a in state.alarms(1.1)] == ["VIBRATION MONITOR INACTIVE"]
 
 
 def test_missing_safety_report_is_flagged() -> None:

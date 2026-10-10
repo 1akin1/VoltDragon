@@ -177,6 +177,26 @@ static void safety_and_node_b_messages_round_trip(void)
     CHECK_EQ(req_out.override, 1);
 }
 
+static void health_message_round_trips(void)
+{
+    const canmsg_health_t in = { CANMSG_VIB_IMBALANCE, CANMSG_VIB_BEARING, 87U, 91U,
+                                 CANMSG_HEALTH_ACTIVE, 200U };
+    canmsg_health_t out;
+    uint8_t payload[CANMSG_PAYLOAD_LEN];
+
+    canmsg_encode_health(payload, &in);
+    canmsg_decode_health(payload, &out);
+    CHECK_EQ(out.alarm, CANMSG_VIB_IMBALANCE);
+    CHECK_EQ(out.last_class, CANMSG_VIB_BEARING);
+    CHECK_EQ(out.confidence_pct, 87);
+    CHECK_EQ(out.fault_score_pct, 91);
+    CHECK_EQ(out.flags, CANMSG_HEALTH_ACTIVE);
+    CHECK_EQ(out.windows, 200);
+    CHECK_STR(canmsg_vib_class_name(CANMSG_VIB_NOMINAL), "nominal");
+    CHECK_STR(canmsg_vib_class_name(CANMSG_VIB_BEARING), "bearing");
+    CHECK_STR(canmsg_vib_class_name(CANMSG_VIB_CLASSES), "?");
+}
+
 static void sequence_tracker_counts_gaps(void)
 {
     canmsg_seq_tracker_t t = { false, 0U };
@@ -229,6 +249,7 @@ int main(void)
     RUN(status_round_trips);
     RUN(gps_and_nav_round_trip);
     RUN(safety_and_node_b_messages_round_trip);
+    RUN(health_message_round_trips);
     RUN(sequence_tracker_counts_gaps);
     RUN(sequence_tracker_handles_wrap_around);
     RUN(sequence_tracker_resynchronises_on_restart_or_duplicate);

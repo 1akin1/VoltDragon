@@ -3,7 +3,7 @@
  * @brief Node A -> Node B CAN messages at 50 Hz (HLR-011, HLR-013).
  *
  * Node A uses a fixed schedule of ten 2 ms slots: STATUS, ACCEL, GYRO, MAG,
- * GPS_LAT, GPS_LON, NAV, SAFETY and two idle slots. Each message therefore repeats
+ * GPS_LAT, GPS_LON, NAV, SAFETY, HEALTH and one idle slot. Each message therefore repeats
  * every 20 ms (50 Hz) and only one frame is ever in flight; bursts of
  * back-to-back frames would overflow the receiver's three-deep FIFO. The IMU
  * and GPS messages are skipped while their data is not valid, so Node B sees

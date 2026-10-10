@@ -12,14 +12,15 @@ UNIT_MAIN_DEFINITIONS;
 
 /* Built from the specification with Python's struct module; also used by tests/python. */
 static const char REFERENCE_HEX[] =
-    "5644544d033f58000700000040e20100c0d40100010003000cfefa00e7031a04"
+    "5644544d04bf58000700000040e20100c0d40100010003000cfefa00e7031a04"
     "fcd600001f018dff35fe0901e803000001000000020000009246c8172ef88c13"
-    "22247c1708023c009600b7004c002003a4010000305d4ac4";
+    "22247c1708023c009600b7004c002003a401000245fcdbed";
 
 static const tlm_packet_t REFERENCE = {
     .seq = 7U,
     .flags = TLM_FLAG_NODE_A_FRESH | TLM_FLAG_IMU_VALID | TLM_FLAG_RECORDER_OK |
-             TLM_FLAG_GPS_FIX | TLM_FLAG_MAG_OK | (1U << TLM_HEADING_SOURCE_SHIFT),
+             TLM_FLAG_GPS_FIX | TLM_FLAG_MAG_OK | (1U << TLM_HEADING_SOURCE_SHIFT) |
+             TLM_FLAG_VIB_ACTIVE,
     .node_b_uptime_ms = 123456U,
     .node_a_uptime_ms = 120000U,
     .node_a_resets = 1U,
@@ -46,6 +47,8 @@ static const tlm_packet_t REFERENCE = {
     .safety_flags = 0x20U,
     .last_request_id = 3U,
     .ground_link_age_ms = 420U,
+    .vibration_alarm = 0U,
+    .fault_score_pct = 2U,
 };
 
 static void reference_bytes(uint8_t *out)
@@ -76,7 +79,7 @@ static void decodes_reference_packet(void)
     reference_bytes(bytes);
     CHECK(tlm_decode(bytes, sizeof(bytes), &p));
     CHECK_EQ(p.seq, 7);
-    CHECK_EQ(p.flags, 0x3F);
+    CHECK_EQ(p.flags, 0xBF);
     CHECK_EQ(p.node_b_uptime_ms, 123456);
     CHECK_EQ(p.node_a_age_ms, 3);
     CHECK_EQ(p.accel_mg[0], -500);
@@ -97,6 +100,8 @@ static void decodes_reference_packet(void)
     CHECK_EQ(p.safety_flags, 0x20);
     CHECK_EQ(p.last_request_id, 3);
     CHECK_EQ(p.ground_link_age_ms, 420);
+    CHECK_EQ(p.vibration_alarm, 0);
+    CHECK_EQ(p.fault_score_pct, 2);
 }
 
 static void rejects_any_single_bit_error(void)

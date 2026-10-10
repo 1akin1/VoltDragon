@@ -8,6 +8,7 @@
 #include "can_msg.h"
 #include "flashlog.h"
 #include "gps.h"
+#include "health.h"
 #include "imu.h"
 #include "log.h"
 #include "nav.h"
@@ -21,6 +22,12 @@
 #define SPEED_DMPS_MAX      (255UL)
 #define CM_PER_DM           (10L)
 
+/* The HEALTH message carries vib_class_t values as CANMSG_VIB_* classes. */
+_Static_assert((VIB_CLASS_NOMINAL == CANMSG_VIB_NOMINAL) &&
+               (VIB_CLASS_IMBALANCE == CANMSG_VIB_IMBALANCE) &&
+               (VIB_CLASS_BEARING == CANMSG_VIB_BEARING) &&
+               (VIB_CLASS_COUNT == CANMSG_VIB_CLASSES), "vibration classes");
+
 typedef enum
 {
     MSG_STATUS = 0,
@@ -31,19 +38,21 @@ typedef enum
     MSG_GPS_LON,
     MSG_NAV,
     MSG_SAFETY,
+    MSG_HEALTH,
     MSG_COUNT,
     MSG_IDLE = MSG_COUNT
 } message_t;
 
 static const uint16_t s_ids[MSG_COUNT] = {
     CANMSG_ID_A_STATUS, CANMSG_ID_A_ACCEL, CANMSG_ID_A_GYRO, CANMSG_ID_A_MAG,
-    CANMSG_ID_A_GPS_LAT, CANMSG_ID_A_GPS_LON, CANMSG_ID_A_NAV, CANMSG_ID_A_SAFETY
+    CANMSG_ID_A_GPS_LAT, CANMSG_ID_A_GPS_LON, CANMSG_ID_A_NAV, CANMSG_ID_A_SAFETY,
+    CANMSG_ID_A_HEALTH
 };
 
 /* One slot every CAN_TX_SLOT_MS; the schedule repeats every CAN_TX_PERIOD_MS. */
 static const message_t s_schedule[CAN_TX_SLOTS] = {
     MSG_STATUS, MSG_ACCEL, MSG_GYRO, MSG_MAG, MSG_GPS_LAT, MSG_GPS_LON, MSG_NAV,
-    MSG_SAFETY, MSG_IDLE, MSG_IDLE
+    MSG_SAFETY, MSG_HEALTH, MSG_IDLE
 };
 
 #define NODE_B_FILTER_BANK  (0U)
@@ -134,6 +143,19 @@ static void encode_nav(uint8_t *payload, bool gps_fix, const nmea_fix_t *fix)
     canmsg_encode_nav(payload, &nav);
 }
 
+static void encode_health(uint8_t *payload, const health_state_t *h)
+{
+    const canmsg_health_t health = {
+        .alarm = (uint8_t)h->alarm,
+        .last_class = (uint8_t)h->last_class,
+        .confidence_pct = h->confidence_pct,
+        .fault_score_pct = h->fault_score_pct,
+        .flags = h->active ? CANMSG_HEALTH_ACTIVE : 0U,
+        .windows = (uint8_t)h->windows,
+    };
+    canmsg_encode_health(payload, &health);
+}
+
 static void send_message(message_t msg, uint32_t now_ms)
 {
     uint8_t payload[CANMSG_PAYLOAD_LEN];
@@ -156,7 +178,17 @@ static void send_message(message_t msg, uint32_t now_ms)
             const safety_state_t state = safety_state();
             canmsg_safety_t safety;
             safety_to_message(&state, &safety);
+            if (health_state(now_ms).alarm != VIB_CLASS_NOMINAL)
+            {
+                safety.flags |= CANMSG_SAFETY_VIBRATION;
+            }
             canmsg_encode_safety(payload, &safety);
+            break;
+        }
+        case MSG_HEALTH:
+        {
+            const health_state_t health = health_state(now_ms);
+            encode_health(payload, &health);
             break;
         }
         case MSG_ACCEL:

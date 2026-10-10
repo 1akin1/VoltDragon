@@ -178,6 +178,33 @@ void canmsg_decode_safety(const uint8_t *payload, canmsg_safety_t *safety)
     safety->last_request_id = payload[5];
 }
 
+void canmsg_encode_health(uint8_t *payload, const canmsg_health_t *health)
+{
+    payload[0] = health->alarm;
+    payload[1] = health->last_class;
+    payload[2] = health->confidence_pct;
+    payload[3] = health->fault_score_pct;
+    payload[4] = health->flags;
+    payload[5] = health->windows;
+}
+
+void canmsg_decode_health(const uint8_t *payload, canmsg_health_t *health)
+{
+    health->alarm = payload[0];
+    health->last_class = payload[1];
+    health->confidence_pct = payload[2];
+    health->fault_score_pct = payload[3];
+    health->flags = payload[4];
+    health->windows = payload[5];
+}
+
+const char *canmsg_vib_class_name(uint8_t vib_class)
+{
+    static const char *const names[CANMSG_VIB_CLASSES] = { "nominal", "imbalance", "bearing" };
+
+    return (vib_class < CANMSG_VIB_CLASSES) ? names[vib_class] : "?";
+}
+
 void canmsg_encode_b_status(uint8_t *payload, const canmsg_b_status_t *status)
 {
     (void)memset(payload, 0, CANMSG_PAYLOAD_LEN);

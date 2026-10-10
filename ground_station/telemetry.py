@@ -1,4 +1,4 @@
-"""Decoder for Node B's 88-byte UDP telemetry packet, version 3 (docs/telemetry.md).
+"""Decoder for Node B's 88-byte UDP telemetry packet, version 4 (docs/telemetry.md).
 
 Written independently from the firmware encoder (firmware/common/src/tlm_msg.c);
 both are checked against the same reference packet, so a layout change on one
@@ -12,7 +12,7 @@ import zlib
 from dataclasses import dataclass
 
 PACKET_LEN = 88
-VERSION = 3
+VERSION = 4
 MAGIC = b"VDTM"
 DEFAULT_PORT = 5600
 
@@ -24,6 +24,7 @@ FLAG_MAG_OK = 0x10
 HEADING_SOURCE_SHIFT = 5
 HEADING_SOURCE_MASK = 0x60
 HEADING_SOURCES = ("none", "magnetometer", "gps")
+FLAG_VIB_ACTIVE = 0x80
 
 # Node A's safety flags, forwarded unchanged from the CAN SAFETY message.
 SAFETY_PROXIMITY = 0x01
@@ -32,6 +33,10 @@ SAFETY_LINK_LOST = 0x04
 SAFETY_BATTERY_LOW = 0x08
 SAFETY_BATTERY_CRITICAL = 0x10
 SAFETY_AUTOPILOT_OK = 0x20
+SAFETY_VIBRATION = 0x40
+
+# Node A's vibration classes (HLR-009), in the classifier's output order.
+VIBRATION_CLASSES = ("nominal", "imbalance", "bearing")
 
 FLIGHT_MODES = ("MISSION", "HOLD", "RETURN_TO_HOME", "LAND")
 UNKNOWN_U8 = 0xFF
@@ -40,8 +45,9 @@ UNKNOWN_U16 = 0xFFFF
 # magic, version, flags, length, seq, B uptime, A uptime, A resets, B resets, A age,
 # accel[3], gyro[3], mag[3], GPS satellites, GPS quality, CAN valid, rejected, lost,
 # latitude, longitude, altitude, heading, field, speed, GPS age, distance, battery,
-# flight mode, safety flags, last request id, ground link age, reserved, CRC-32
-_LAYOUT = struct.Struct("<4sBBHIIIBBH3h3h3hBBIIIiihHHHHHBBBBHHI")
+# flight mode, safety flags, last request id, ground link age, vibration alarm,
+# vibration fault score, CRC-32
+_LAYOUT = struct.Struct("<4sBBHIIIBBH3h3h3hBBIIIiihHHHHHBBBBHBBI")
 assert _LAYOUT.size == PACKET_LEN
 
 _GYRO_UNIT_MDPS = 10
@@ -81,6 +87,8 @@ class Telemetry:
     safety_flags: int
     last_request_id: int
     ground_link_age_ms: int
+    vibration_alarm: str | None     # VIBRATION_CLASSES; None before Node A reports it
+    fault_score_pct: int | None     # 100 minus P(nominal) of the latest window
 
     @property
     def node_a_fresh(self) -> bool:
@@ -127,6 +135,14 @@ class Telemetry:
     def autopilot_ok(self) -> bool:
         return bool(self.safety_flags & SAFETY_AUTOPILOT_OK)
 
+    @property
+    def vibration_monitor_active(self) -> bool:
+        return bool(self.flags & FLAG_VIB_ACTIVE)
+
+    @property
+    def vibration_fault(self) -> bool:
+        return bool(self.safety_flags & SAFETY_VIBRATION)
+
 
 def decode(datagram: bytes) -> Telemetry:
     """Parses and checks a telemetry datagram."""
@@ -149,6 +165,7 @@ def decode(datagram: bytes) -> Telemetry:
     sats, quality, can_valid, can_rejected, can_lost = f[19:24]
     lat, lon, alt_dm, heading, field, speed_dm, gps_age = f[24:31]
     distance_dm, battery, mode, safety_flags, request_id, link_age = f[31:37]
+    vib_alarm, fault_score = f[37:39]
 
     return Telemetry(
         seq=seq,
@@ -179,6 +196,9 @@ def decode(datagram: bytes) -> Telemetry:
         safety_flags=safety_flags,
         last_request_id=request_id,
         ground_link_age_ms=link_age,
+        vibration_alarm=VIBRATION_CLASSES[vib_alarm] if vib_alarm < len(VIBRATION_CLASSES)
+        else None,
+        fault_score_pct=None if fault_score == UNKNOWN_U8 else fault_score,
     )
 
 
@@ -195,7 +215,9 @@ def encode(t: Telemetry) -> bytes:
         UNKNOWN_U8 if t.battery_pct is None else t.battery_pct,
         UNKNOWN_U8 if t.flight_mode is None else FLIGHT_MODES.index(t.flight_mode),
         t.safety_flags, t.last_request_id, t.ground_link_age_ms,
-        0, 0,
+        UNKNOWN_U8 if t.vibration_alarm is None else VIBRATION_CLASSES.index(t.vibration_alarm),
+        UNKNOWN_U8 if t.fault_score_pct is None else t.fault_score_pct,
+        0,
     )[:-4]
     return body + struct.pack("<I", zlib.crc32(body))
 

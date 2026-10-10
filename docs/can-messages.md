@@ -37,7 +37,7 @@ scheme of AUTOSAR E2E Profile 1.
 ## Messages from Node A
 
 Node A uses a fixed schedule of ten 2 ms slots: STATUS, ACCEL, GYRO, MAG,
-GPS_LAT, GPS_LON, NAV, SAFETY and two idle slots. Each message therefore repeats
+GPS_LAT, GPS_LON, NAV, SAFETY, HEALTH and one idle slot. Each message therefore repeats
 every 20 ms (50 Hz), and the bus never carries a burst: a burst of frames would
 overflow the receiver's three-deep hardware FIFO, which the first version of
 this design did.
@@ -52,6 +52,7 @@ this design did.
 | 0x105 | GPS_LON | bytes 0..3: longitude, int32, degrees x 1e7; bytes 4..5: altitude above mean sea level, int16, 0.1 m | While the GPS fix is fresh |
 | 0x106 | NAV | bytes 0..1: true heading, uint16, 0.01 deg; bytes 2..3: measured field strength, uint16, mgauss; byte 4: flags (bit 0 magnetometer OK, bit 1 GPS fix, bits 2-3 heading source: 0 none, 1 magnetometer, 2 GPS course); byte 5: ground speed, 0.1 m/s (saturates at 25.5 m/s) | Always |
 | 0x107 | SAFETY | bytes 0..1: distance to the nearest conductor, uint16, 0.1 m (0xFFFF: no fresh GPS fix); byte 2: battery, % (0xFF: autopilot silent); byte 3: flight mode (0 MISSION, 1 HOLD, 2 RETURN_TO_HOME, 3 LAND); byte 4: flags (see below); byte 5: id of the last operator mode request handled | Always |
+| 0x108 | HEALTH | Vibration monitor (HLR-009, [edge-ai.md](edge-ai.md)). byte 0: alarm; byte 1: the latest window's class; byte 2: its probability, %; byte 3: fault score, % (100 minus the latest window's probability of nominal); byte 4: flags (bit 0: active, a window classified within 1 s); byte 5: windows classified, modulo 256. Classes: 0 nominal, 1 imbalance (damaged propeller), 2 bearing (worn motor bearing) | Always |
 
 SAFETY flags:
 
@@ -63,11 +64,12 @@ SAFETY flags:
 | 3 (0x08) | Battery low (below 20 %) |
 | 4 (0x10) | Battery critical (below 10 %) |
 | 5 (0x20) | Autopilot OK: its status arrived in the last second |
+| 6 (0x40) | Vibration fault: the on-board classifier's alarm is raised (HLR-009) |
 
 Values outside their range saturate. Without a valid IMU sample the IMU
 messages are not sent, and without a fresh GPS fix the position messages are
 not sent; the receiver sees the flags cleared and the data age growing. With no
-IMU and no GPS, only STATUS, NAV and SAFETY flow (150 frames/s).
+IMU and no GPS, only STATUS, NAV, SAFETY and HEALTH flow (200 frames/s).
 
 ## Messages from Node B
 

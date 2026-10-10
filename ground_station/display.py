@@ -11,6 +11,8 @@ With live data the display also sends Node B a PING heartbeat once a second
 
 The map shows the route's pylons and conductors, the vehicle's track (red
 where the magnetometer was disturbed) and its current position and heading.
+The plots show the distance to the line, the measured magnetic field, the
+heading and the on-board vibration classifier's fault score (HLR-009).
 """
 
 from __future__ import annotations
@@ -54,14 +56,17 @@ class Display:
         self.state = GroundState(route)
         self.t0: float | None = None
 
-        self.fig = plt.figure(figsize=(15, 8.5))
-        grid = self.fig.add_gridspec(4, 2, width_ratios=(1.35, 1.0), height_ratios=(1, 1, 1, 0.8))
-        self.ax_map = self.fig.add_subplot(grid[0:3, 0])
-        self.ax_alarms = self.fig.add_subplot(grid[3, 0])
+        self.fig = plt.figure(figsize=(15, 10))
+        grid = self.fig.add_gridspec(
+            5, 2, width_ratios=(1.35, 1.0), height_ratios=(1, 1, 1, 0.8, 0.9)
+        )
+        self.ax_map = self.fig.add_subplot(grid[0:4, 0])
+        self.ax_alarms = self.fig.add_subplot(grid[4, 0])
         self.ax_dist = self.fig.add_subplot(grid[0, 1])
         self.ax_field = self.fig.add_subplot(grid[1, 1], sharex=self.ax_dist)
         self.ax_heading = self.fig.add_subplot(grid[2, 1], sharex=self.ax_dist)
-        self.ax_status = self.fig.add_subplot(grid[3, 1])
+        self.ax_vib = self.fig.add_subplot(grid[3, 1], sharex=self.ax_dist)
+        self.ax_status = self.fig.add_subplot(grid[4, 1])
         self._draw_static()
 
     def _draw_static(self) -> None:
@@ -96,13 +101,18 @@ class Display:
         (self.field_line,) = self.ax_field.plot([], [], color="#1565c0")
 
         self.ax_heading.set_ylabel("heading (deg)")
-        self.ax_heading.set_xlabel("mission time (s)")
         self.ax_heading.set_ylim(0, 360)
         self.heading_points = {
             src: self.ax_heading.plot([], [], ".", ms=3, color=col, label=src)[0]
             for src, col in SOURCE_COLOURS.items()
         }
         self.ax_heading.legend(loc="upper right", fontsize=8, ncol=3)
+
+        self.ax_vib.set_ylabel("vibration\nfault score (%)")
+        self.ax_vib.set_xlabel("mission time (s)")
+        self.ax_vib.set_ylim(-5, 105)
+        self.ax_vib.axhline(50, color="#9e9e9e", ls=":", lw=1)
+        (self.vib_line,) = self.ax_vib.plot([], [], color="#6a1b9a")
 
         for ax in (self.ax_alarms, self.ax_status):
             ax.axis("off")
@@ -140,6 +150,8 @@ class Display:
         dist = [(p.mission_t, p.distance_m) for p in s if p.distance_m is not None]
         self.dist_line.set_data([d[0] for d in dist], [d[1] for d in dist])
         self.field_line.set_data(times, [p.field_mgauss for p in s])
+        vib = [(p.mission_t, p.fault_score_pct) for p in s if p.fault_score_pct is not None]
+        self.vib_line.set_data([v[0] for v in vib], [v[1] for v in vib])
         for src, artist in self.heading_points.items():
             pts = [(p.mission_t, p.heading_deg) for p in s if p.heading_source == src]
             artist.set_data([q[0] for q in pts], [q[1] for q in pts])
@@ -184,9 +196,12 @@ class Display:
             f"{'?' if t.battery_pct is None else t.battery_pct} %   on-board distance "
             f"{'?' if t.distance_m is None else f'{t.distance_m:.1f}'} m   "
             f"request {t.last_request_id}",
+            f"vibration monitor {'active' if t.vibration_monitor_active else 'INACTIVE'}, "
+            f"alarm {t.vibration_alarm or '?'}, fault score "
+            f"{'?' if t.fault_score_pct is None else t.fault_score_pct} %",
         ]
         for i, line in enumerate(lines):
-            self.ax_status.text(0.0, 0.88 - 0.19 * i, line, fontsize=9.5, family="monospace",
+            self.ax_status.text(0.0, 0.9 - 0.16 * i, line, fontsize=9.5, family="monospace",
                                 transform=self.ax_status.transAxes)
 
     def save(self, path: Path) -> None:

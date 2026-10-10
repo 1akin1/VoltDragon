@@ -30,6 +30,7 @@
 #define CANMSG_ID_A_GPS_LON     (0x105U)
 #define CANMSG_ID_A_NAV         (0x106U)
 #define CANMSG_ID_A_SAFETY      (0x107U)
+#define CANMSG_ID_A_HEALTH      (0x108U)    /* vibration monitor (HLR-009) */
 #define CANMSG_NODE_A_ID_BASE   (0x100U)
 #define CANMSG_NODE_A_ID_MASK   (0x7F0U)
 
@@ -46,6 +47,15 @@
 #define CANMSG_SAFETY_BATTERY_LOW   (0x08U)     /**< Below 20 %. */
 #define CANMSG_SAFETY_BATTERY_CRIT  (0x10U)     /**< Below 10 %. */
 #define CANMSG_SAFETY_AUTOPILOT_OK  (0x20U)     /**< Autopilot status received within 1 s. */
+#define CANMSG_SAFETY_VIBRATION     (0x40U)     /**< Vibration fault alarm (HLR-009). */
+
+/* HEALTH: vibration classes, in the classifier's output order (Node A's vib_class_t). */
+#define CANMSG_VIB_NOMINAL          (0U)
+#define CANMSG_VIB_IMBALANCE        (1U)        /**< Damaged propeller. */
+#define CANMSG_VIB_BEARING          (2U)        /**< Worn motor bearing. */
+#define CANMSG_VIB_CLASSES          (3U)
+/* HEALTH flags. */
+#define CANMSG_HEALTH_ACTIVE        (0x01U)     /**< The monitor classified a window within 1 s. */
 
 /* B_STATUS flags. */
 #define CANMSG_B_GROUND_CONTACT     (0x01U)     /**< At least one ground station command received. */
@@ -106,6 +116,17 @@ typedef struct
     uint8_t  last_request_id;   /**< Last operator mode request processed. */
 } canmsg_safety_t;
 
+/** Node A's vibration monitor, carried by HEALTH. */
+typedef struct
+{
+    uint8_t alarm;              /**< CANMSG_VIB_*: the debounced alarm; NOMINAL when none. */
+    uint8_t last_class;         /**< CANMSG_VIB_*: the latest window's class. */
+    uint8_t confidence_pct;     /**< The latest window's probability of last_class. */
+    uint8_t fault_score_pct;    /**< 100 minus the latest window's probability of NOMINAL. */
+    uint8_t flags;              /**< CANMSG_HEALTH_* */
+    uint8_t windows;            /**< Windows classified, modulo 256. */
+} canmsg_health_t;
+
 /** Node B's view of the ground link, carried by B_STATUS. */
 typedef struct
 {
@@ -161,6 +182,13 @@ void canmsg_decode_nav(const uint8_t *payload, canmsg_nav_t *nav);
 /** SAFETY payload: distance (uint16), battery, mode, flags, last request id. */
 void canmsg_encode_safety(uint8_t *payload, const canmsg_safety_t *safety);
 void canmsg_decode_safety(const uint8_t *payload, canmsg_safety_t *safety);
+
+/** HEALTH payload: alarm, last class, confidence, fault score, flags, windows. */
+void canmsg_encode_health(uint8_t *payload, const canmsg_health_t *health);
+void canmsg_decode_health(const uint8_t *payload, canmsg_health_t *health);
+
+/** Name of a CANMSG_VIB_* class: "nominal", "imbalance", "bearing", or "?". */
+const char *canmsg_vib_class_name(uint8_t vib_class);
 
 /** B_STATUS payload: link age (uint16), flags; bytes 3..5 zero. */
 void canmsg_encode_b_status(uint8_t *payload, const canmsg_b_status_t *status);

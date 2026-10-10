@@ -124,7 +124,7 @@ def test_gps_runs_at_5_fixes_per_second(nominal: Flight) -> None:
 
 def test_can_and_telemetry_run_without_losses(nominal: Flight) -> None:
     can = [m for t, m in nominal.messages("b", "can: rx") if t > 2.0]
-    assert can and all(m.startswith("can: rx 400/s, rejected 0, lost 0, unknown id 0, overruns 0")
+    assert can and all(m.startswith("can: rx 450/s, rejected 0, lost 0, unknown id 0, overruns 0")
                        for m in can)
     tlm = [m for t, m in nominal.messages("b", "tlm:") if t > 2.0]
     assert tlm and all(m.startswith("tlm: 10 packets/s") and m.endswith("failed 0") for m in tlm)
@@ -138,3 +138,13 @@ def test_position_and_safety_state_reach_node_b(nominal: Flight) -> None:
     # Heartbeats once a second: Node B never sees the ground link older than about 1 s.
     ages = [int(re.search(r"ground link age (\d+) ms", m).group(1)) for m in safety]
     assert max(ages) < 1200, ages
+
+
+# --- Vibration monitor (HLR-009): no false alarm on a healthy airframe
+
+def test_no_vibration_alarm_on_a_healthy_airframe(nominal: Flight, faulty: Flight) -> None:
+    for flight in (nominal, faulty):
+        assert not any("VIBRATION FAULT" in m for _, m in flight.a + flight.b)
+    monitor = [m for t, m in nominal.messages("b", "can: A vibration monitor") if t > 2.0]
+    assert monitor and all(m.startswith("can: A vibration monitor active, alarm nominal")
+                           for m in monitor)

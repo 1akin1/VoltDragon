@@ -26,15 +26,16 @@ receive it.
 ## Telemetry packet
 
 One 88-byte packet per period, at the rate set with `TLM_RATE` (10 Hz by
-default, 10 to 50 Hz). All fields are little-endian. This is version 3, which
-adds Node A's safety state; version 2 (Phase 3) was 80 bytes without it, and
-version 1 (Phase 2) 60 bytes without the navigation fields.
+default, 10 to 50 Hz). All fields are little-endian. This is version 4, which
+fills the two reserved bytes with Node A's vibration monitor (Phase 5);
+version 3 (Phase 4) added Node A's safety state, version 2 (Phase 3) was 80
+bytes without it, and version 1 (Phase 2) 60 bytes without the navigation fields.
 
 | Offset | Size | Field | Notes |
 |--------|------|-------|-------|
 | 0 | 4 | Magic | ASCII `VDTM` |
-| 4 | 1 | Version | 3 |
-| 5 | 1 | Flags | bit 0: Node A data fresh (age < 100 ms); bit 1: Node A IMU valid; bit 2: Node A recorder OK; bit 3: GPS fix (position younger than 1 s); bit 4: magnetometer OK; bits 5-6: heading source (0 none, 1 magnetometer, 2 GPS course) |
+| 4 | 1 | Version | 4 |
+| 5 | 1 | Flags | bit 0: Node A data fresh (age < 100 ms); bit 1: Node A IMU valid; bit 2: Node A recorder OK; bit 3: GPS fix (position younger than 1 s); bit 4: magnetometer OK; bits 5-6: heading source (0 none, 1 magnetometer, 2 GPS course); bit 7: vibration monitor active |
 | 6 | 2 | Length | 88 |
 | 8 | 4 | Sequence number | Increments per packet sent; restarts at 0 when Node B restarts |
 | 12 | 4 | Node B uptime | ms |
@@ -60,10 +61,11 @@ version 1 (Phase 2) 60 bytes without the navigation fields.
 | 74 | 2 | Distance to the line | uint16, 0.1 m, Node A's own estimate (SAFETY message); 65535 if unknown |
 | 76 | 1 | Battery | %, from the autopilot via Node A; 255 if unknown |
 | 77 | 1 | Flight mode | 0 MISSION, 1 HOLD, 2 RETURN_TO_HOME, 3 LAND; 255 before Node A has reported it |
-| 78 | 1 | Safety flags | As in the SAFETY message: proximity, avoiding, ground link lost, battery low, battery critical, autopilot OK |
+| 78 | 1 | Safety flags | As in the SAFETY message: proximity, avoiding, ground link lost, battery low, battery critical, autopilot OK, vibration fault |
 | 79 | 1 | Last mode request | Id of the last operator mode request Node A handled |
 | 80 | 2 | Ground link age | ms since Node B last received an intact command; 65535 if none yet |
-| 82 | 2 | Reserved | 0 |
+| 82 | 1 | Vibration alarm | 0 none, 1 imbalance (damaged propeller), 2 bearing (worn motor bearing); 255 before Node A has reported it (HLR-009) |
+| 83 | 1 | Vibration fault score | %, 100 minus the latest window's probability of nominal; 255 if unknown |
 | 84 | 4 | CRC-32 | IEEE 802.3 (zlib) over bytes 0..83 |
 
 UDP has its own checksum, but it is optional in IPv4 and only covers the
@@ -77,20 +79,20 @@ Both decoders (C and Python) and the C encoder are tested against this packet,
 which was built from the table above with Python's `struct` module:
 
 ```
-5644544d033f58000700000040e20100c0d40100010003000cfefa00e7031a04
+5644544d04bf58000700000040e20100c0d40100010003000cfefa00e7031a04
 fcd600001f018dff35fe0901e803000001000000020000009246c8172ef88c13
-22247c1708023c009600b7004c002003a4010000305d4ac4
+22247c1708023c009600b7004c002003a401000245fcdbed
 ```
 
-It decodes to sequence 7, flags 0x3F (all status flags set, heading from the
-magnetometer), Node B uptime 123456 ms, Node A uptime 120000 ms, Node A reset
+It decodes to sequence 7, flags 0xBF (all status flags set, heading from the
+magnetometer, vibration monitor active), Node B uptime 123456 ms, Node A uptime 120000 ms, Node A reset
 count 1, data age 3 ms, acceleration (-500, 250, 999) mg, angular rate
 (10500, -105000, 0) mdps, magnetic field (287, -115, -459) mgauss, 9 satellites
 with fix quality 1, CAN counters 1000 valid, 1 rejected, 2 lost, position
 39.9001234 N 32.8005678 E at 925.0 m, heading 60.12 deg, field 520 mG, ground
 speed 6.0 m/s, GPS data age 150 ms, distance to the line 18.3 m, battery 76 %,
-mode MISSION, safety flags 0x20 (autopilot OK), last mode request 3 and ground
-link age 420 ms.
+mode MISSION, safety flags 0x20 (autopilot OK), last mode request 3, ground
+link age 420 ms, no vibration alarm and a fault score of 2 %.
 
 ## Commands over UDP
 
@@ -144,12 +146,16 @@ command exchanges. For a flight with the plant model driving the sensors, use
   (HLR-001, HLR-002);
 - the measured field strength against the magnetometer's acceptance band, and
   the heading coloured by its source;
-- the flight mode, battery and Node A's own distance estimate;
+- the on-board vibration classifier's fault score (HLR-009);
+- the flight mode, battery, Node A's own distance estimate and the vibration
+  monitor's state;
 - the active alarms: link lost, too close to the line, proximity, Node A data
   stale, GPS no fix, IMU invalid, magnetometer disturbed, recorder off, packet
   loss and CAN errors, and from Node A's safety state: return to home or land
   (critical) and hold, vehicle lost the command link, battery low or critical,
-  autopilot silent, avoiding, and safety state unknown.
+  autopilot silent, avoiding, safety state unknown, vibration fault (critical,
+  with the fault: damaged propeller or worn motor bearing) and vibration
+  monitor inactive.
 
 `--record FILE` keeps the received packets, `--replay FILE` plays them back, and
 `--snapshot IMAGE` saves an image instead of opening a window.

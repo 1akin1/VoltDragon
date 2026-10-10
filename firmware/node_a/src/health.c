@@ -22,6 +22,7 @@ typedef struct
     vib_class_t alarm;
     vib_class_t last_class;
     uint8_t     confidence_pct;
+    uint8_t     fault_score_pct;
     uint32_t    windows;
     uint32_t    fault_windows;
     uint32_t    last_window_ms;
@@ -151,6 +152,8 @@ void health_classify(uint32_t now_ms)
         }
     }
     const uint8_t confidence = (uint8_t)((vib_model_probability(output[best]) * PERCENT) + 0.5f);
+    const float nominal = vib_model_probability(output[VIB_CLASS_NOMINAL]);
+    const uint8_t fault_score = (uint8_t)(((1.0f - nominal) * PERCENT) + 0.5f);
 
     /* The debounce state is AiTask's own; only the published fields need the lock. */
     const vib_class_t previous = s_status.alarm;
@@ -160,6 +163,7 @@ void health_classify(uint32_t now_ms)
     s_status.alarm = alarm;
     s_status.last_class = best;
     s_status.confidence_pct = confidence;
+    s_status.fault_score_pct = fault_score;
     s_status.windows++;
     if (best != VIB_CLASS_NOMINAL)
     {
@@ -191,6 +195,7 @@ health_state_t health_state(uint32_t now_ms)
         .alarm = s.alarm,
         .last_class = s.last_class,
         .confidence_pct = s.confidence_pct,
+        .fault_score_pct = s.fault_score_pct,
         .windows = s.windows,
         .fault_windows = s.fault_windows,
         .inference_us = s.inference_us,
