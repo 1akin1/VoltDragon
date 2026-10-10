@@ -9,13 +9,15 @@ dependencies = []
 [project.optional-dependencies]
 gs = ["matplotlib>=3.8"]
 dev = ["pytest>=8", "ruff>=0.6", "robotframework==6.1", "matplotlib>=3.8"]
+# Training the vibration classifier (Linux/WSL; TensorFlow 2.18 supports Python 3.9-3.12).
+ml = ["numpy>=1.26", "tensorflow-cpu==2.18.*"]
 
 [build-system]
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-include = ["sim*", "ground_station*"]
+include = ["sim*", "ground_station*", "ml*"]
 
 [tool.setuptools.package-data]
 "sim.plant" = ["routes/*.json"]

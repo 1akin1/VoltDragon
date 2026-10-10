@@ -1,5 +1,7 @@
 """Sensor models: IMU and magnetometer (LSM9DS1) at 100 Hz, GPS at 5 Hz.
 
+The IMU also picks up the rotors' vibration (sim/plant/vibration.py).
+
 Outputs are in the units the firmware reports (g, deg/s, gauss) and in the
 sensor's body axes (FLU, aligned with the vehicle). Noise is white Gaussian
 plus a constant bias per axis; GPS position error is a slowly wandering
@@ -15,8 +17,9 @@ from datetime import datetime, timedelta
 
 from sim.plant import magnetics, nmea
 from sim.plant.route import Route
-from sim.plant.vec import Vec3
+from sim.plant.vec import ZERO, Vec3
 from sim.plant.vehicle import GRAVITY, VehicleState
+from sim.plant.vibration import VibrationSample
 
 
 @dataclass(frozen=True)
@@ -45,16 +48,20 @@ class Imu:
         self.gyro_bias = _gauss3(self.rng, 0.2)
         self.mag_bias = _gauss3(self.rng, 0.003)
 
-    def sample(self, state: VehicleState) -> ImuSample:
+    def sample(self, state: VehicleState, vibration: VibrationSample | None = None) -> ImuSample:
         line = magnetics.line_field_gauss(self.route, state.position, state.t)
         field_body = state.attitude.apply_transpose(self.earth_enu + line)
         rate_dps = state.rate_body * math.degrees(1.0)
+        vib_accel = vibration.accel_g if vibration is not None else ZERO
+        vib_gyro = vibration.gyro_dps if vibration is not None else ZERO
         return ImuSample(
             t=state.t,
             accel_g=state.specific_force_body * (1.0 / GRAVITY)
+            + vib_accel
             + self.accel_bias
             + _gauss3(self.rng, self.ACCEL_NOISE_G),
-            gyro_dps=rate_dps + self.gyro_bias + _gauss3(self.rng, self.GYRO_NOISE_DPS),
+            gyro_dps=rate_dps + vib_gyro + self.gyro_bias
+            + _gauss3(self.rng, self.GYRO_NOISE_DPS),
             mag_gauss=field_body + self.mag_bias + _gauss3(self.rng, self.MAG_NOISE_GAUSS),
             line_field_gauss=line.norm(),
         )

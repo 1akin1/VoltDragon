@@ -1,4 +1,4 @@
-"""Tests for the plant model: geometry, magnetic fields, flight and sensors."""
+"""Tests for the plant model: geometry, magnetic fields, flight, sensors and vibration."""
 
 import math
 import re
@@ -7,9 +7,10 @@ import pytest
 
 from sim.plant import nmea
 from sim.plant.magnetics import EarthField, line_field_peak_gauss, segment_field_tesla
-from sim.plant.plant import STEP_S, Plant
+from sim.plant.plant import STEP_S, Plant, Scenario
 from sim.plant.route import Route, Segment
 from sim.plant.vec import Mat3, Vec3, body_rates
+from sim.plant.vibration import Vibration, VibrationFault
 
 ROUTE = Route.load("line_a")
 
@@ -110,3 +111,58 @@ def test_gps_runs_at_5_hz(flight: list) -> None:
     fixes = [s.gps for s in flight if s.gps is not None]
     assert len(fixes) == pytest.approx(30.0 * 5.0, abs=1)
     assert fixes[0].sentences.count("$GP") == 2
+
+
+HOVER_FORCE = Vec3(0.0, 0.0, 9.80665)
+
+
+def _vibration_rms(fault: VibrationFault | None, seconds: float = 5.0) -> tuple[Vec3, set]:
+    vibration = Vibration(fault, seed=7)
+    samples = [vibration.step(STEP_S, HOVER_FORCE, True) for _ in range(int(seconds / STEP_S))]
+    later = samples[len(samples) // 2:]
+    rms = Vec3(*(math.sqrt(sum(s.accel_g[i] ** 2 for s in later) / len(later)) for i in range(3)))
+    return rms, {s.label for s in later}
+
+
+def test_healthy_rotors_vibrate_a_little() -> None:
+    rms, labels = _vibration_rms(None)
+    assert 0.005 < rms.x < 0.03 and 0.005 < rms.y < 0.03
+    assert labels == {"nominal"}
+
+
+def test_damaged_propeller_shakes_the_radial_axes() -> None:
+    healthy, _ = _vibration_rms(None)
+    rms, labels = _vibration_rms(VibrationFault("imbalance", onset_s=0.0))
+    assert rms.x > 5.0 * healthy.x and rms.y > 5.0 * healthy.y
+    assert rms.x > 2.0 * rms.z
+    assert labels == {"imbalance"}
+
+
+def test_worn_bearing_shakes_mostly_along_the_motor_axis() -> None:
+    healthy, _ = _vibration_rms(None)
+    rms, labels = _vibration_rms(VibrationFault("bearing", onset_s=0.0))
+    assert rms.z > 10.0 * healthy.z
+    assert rms.z > 1.5 * rms.x
+    assert labels == {"bearing"}
+
+
+def test_fault_starts_at_its_onset_and_stops_with_the_motors() -> None:
+    vibration = Vibration(VibrationFault("imbalance", onset_s=1.0))
+    labels = [vibration.step(STEP_S, HOVER_FORCE, True).label for _ in range(200)]
+    assert labels[:99] == ["nominal"] * 99 and labels[100:] == ["imbalance"] * 100
+    landed = vibration.step(STEP_S, HOVER_FORCE, False)
+    assert landed.accel_g == Vec3(0.0, 0.0, 0.0) and landed.label == "nominal"
+
+
+def test_unknown_fault_kind_is_rejected() -> None:
+    with pytest.raises(ValueError):
+        VibrationFault("loose screw", onset_s=0.0)
+
+
+def test_plant_adds_the_vibration_to_the_imu() -> None:
+    plant = Plant(Scenario(vibration_fault=VibrationFault("imbalance", onset_s=0.0)))
+    steps = [plant.step() for _ in range(300)]
+    assert all(s.vibration.label == "imbalance" for s in steps)
+    radial = [s.imu.accel_g.x for s in steps[100:]]
+    mean = sum(radial) / len(radial)
+    assert math.sqrt(sum((a - mean) ** 2 for a in radial) / len(radial)) > 0.1

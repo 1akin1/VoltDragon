@@ -10,6 +10,8 @@ Scenarios:
                    injection): the vehicle flies the plan as written
     link-loss      the ground station's heartbeat stops after 12 s
     battery        starts with 22 % battery, draining at 0.5 %/s
+    prop-damage    a propeller is damaged at 30 s (vibration fault, HLR-009)
+    bearing-wear   a motor bearing fails at 30 s (vibration fault, HLR-009)
 
 Writes to the output directory:
     node_a.log, node_b.log   the two nodes' debug consoles
@@ -35,6 +37,7 @@ from pathlib import Path
 
 from sim.cosim import REPO, STEP_S, CoSimulation, renode_monitor
 from sim.plant.plant import Plant, Scenario
+from sim.plant.vibration import VibrationFault
 
 REPORT_EVERY_S = 10.0
 
@@ -44,6 +47,12 @@ SCENARIOS = {
     "no-avoidance": (Scenario(obey_avoidance=False), math.inf),
     "link-loss": (Scenario(), 12.0),
     "battery": (Scenario(battery_pct=22.0, battery_drain_pct_per_s=0.5), math.inf),
+    "prop-damage": (
+        Scenario(vibration_fault=VibrationFault("imbalance", onset_s=30.0, rotor=2)), math.inf
+    ),
+    "bearing-wear": (
+        Scenario(vibration_fault=VibrationFault("bearing", onset_s=30.0, rotor=1)), math.inf
+    ),
 }
 
 
