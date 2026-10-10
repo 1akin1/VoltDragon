@@ -39,14 +39,18 @@ flowchart TB
 | `renode/` | Renode platform and start-up scripts |
 | `sim/plant` | Python plant model: route, line field, vehicle, wind, IMU and GPS |
 | `sim/` | Co-simulation with Renode and the mission runner |
+| `ml/` | Edge AI: vibration dataset, features, training and INT8 quantisation; the trained models in `ml/models` |
 | `ground_station/` | Python ground station: map, plots and alarms; receiver and command tools |
 | `third_party/lwip` | lwIP 2.2.1 TCP/IP stack (git submodule) |
+| `third_party/freertos` | FreeRTOS kernel (git submodule) |
+| `third_party/tflite-micro` | The part of TensorFlow Lite Micro that Node A uses (vendored by `tools/tflm/vendor.sh`) |
 | `tests/robot` | Robot Framework system tests (Renode) |
 | `tests/unit` | Host unit tests for hardware-independent firmware modules (ctest) |
 | `tests/python` | pytest unit tests (plant model, ground station) |
 | `tests/integration` | End-to-end mission: plant model driving both nodes in Renode |
 | `tools/gdb` | GDB helpers (fault-frame decoding) |
-| `docs/` | [Roadmap](docs/roadmap.md), [HLR](docs/requirements/HLR.md), [LLR](docs/requirements/LLR.md), [debugging](docs/debugging.md), [command interface](docs/command-interface.md), [CAN messages](docs/can-messages.md), [telemetry](docs/telemetry.md), [simulation](docs/simulation.md), [RTOS](docs/rtos.md), [autopilot link and safety logic](docs/autopilot-link.md), [MISRA deviations](docs/misra-deviations.md) |
+| `tools/tflm` | Script that vendors the TensorFlow Lite Micro subset |
+| `docs/` | [Roadmap](docs/roadmap.md), [HLR](docs/requirements/HLR.md), [LLR](docs/requirements/LLR.md), [debugging](docs/debugging.md), [command interface](docs/command-interface.md), [CAN messages](docs/can-messages.md), [telemetry](docs/telemetry.md), [simulation](docs/simulation.md), [RTOS](docs/rtos.md), [autopilot link and safety logic](docs/autopilot-link.md), [Edge AI](docs/edge-ai.md), [vibration model report](docs/vibration-model-report.md), [MISRA deviations](docs/misra-deviations.md) |
 
 ## Building
 
@@ -88,7 +92,13 @@ pytest
 # Fly the inspection mission: the plant model drives both nodes in Renode (docs/simulation.md)
 python -m sim.mission --duration 90
 python -m sim.mission --scenario link-loss --duration 25   # or: battery, no-avoidance
-python -m pytest tests/integration          # four flights, checked against ground truth
+python -m sim.mission --scenario prop-damage --duration 20     # or: bearing-wear
+python -m pytest tests/integration          # six flights, checked against ground truth
+
+# Retrain the vibration classifier (optional; the trained model is committed). Python 3.11/3.12
+pip install -e ".[ml]"
+python -m ml.dataset --out build/ml/dataset.npz
+python -m ml.train --dataset build/ml/dataset.npz
 
 # ... with the ground-station display on the host (as root: Renode creates a TAP device)
 sudo python -m sim.mission --tap &
@@ -141,6 +151,20 @@ Phase 4 complete: Node A runs on FreeRTOS and keeps the vehicle safe.
   tested in closed loop: the close pass, which the plan flies at 4 m from a conductor,
   stays more than 10 m away.
 
+Phase 5 complete: Node A detects motor and propeller faults with an INT8 neural
+network on TensorFlow Lite Micro ([Edge AI](docs/edge-ai.md)).
+
+- The plant model's rotors shake the IMU; a damaged propeller or a worn motor
+  bearing can be injected. 400 randomised flights give 24000 s of labelled data.
+- A 1955-parameter network on 42 spectral features, quantised to INT8, matches
+  FP32 accuracy (99.98 % of test windows) and raised no false alarm in 3 hours
+  of fault-free flight ([report](docs/vibration-model-report.md)). On Node A it
+  runs in AiTask from a 2 KB static arena, and its output matches the Python
+  reference bit for bit.
+- The alarm travels over CAN and UDP telemetry to the ground station, which
+  names the fault and plots the fault score: in the co-simulation, about 1 s
+  after the fault (HLR-009 requires 2 s).
+
 See the [roadmap](docs/roadmap.md).
 
 ## Limitations: to be verified in the hardware phase
@@ -153,7 +177,10 @@ in simulation (see [node_a_imu.robot](tests/robot/node_a_imu.robot)); the co-sim
 compensates for this, and for other model differences listed in
 [simulation.md](docs/simulation.md). The magnetometer and accelerometer axes are
 assumed aligned; a real LSM9DS1 needs its magnetometer axes remapped. Timing figures such as interrupt latency and
-inference time do not reflect real hardware. Electrical concerns (I2C pull-ups, CAN
+inference time do not reflect real hardware. The vibration classifier is trained
+on simulated vibration, and at Node A's 100 Hz IMU rate the rotor tones (about
+80 Hz) alias; real hardware would read the LSM9DS1 FIFO at 952 Hz and need data
+from real airframes ([Edge AI: limitations](docs/edge-ai.md#limitations)). Electrical concerns (I2C pull-ups, CAN
 termination, signal integrity) are not simulated. The STM32F4 Ethernet MAC needs an
 AHB clock of at least 25 MHz, but both nodes run from the 16 MHz HSI; Node B needs
 the PLL enabled (and the clock-dependent settings updated) before its Ethernet can

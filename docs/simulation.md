@@ -54,6 +54,7 @@ A kinematic multirotor:
 | Gyroscope | 100 Hz | Body rates, plus 0.05 deg/s noise and a per-axis bias |
 | Magnetometer | 100 Hz in the model, 10 Hz into Renode (below) | Earth plus line field in body axes, plus 2 mG noise and a bias |
 | GPS | 5 Hz | Position with a slowly wandering error (Gauss-Markov, 1 m horizontal, 2 m vertical, 20 s); NMEA GGA and RMC sentences at 9600 baud |
+| Rotor vibration | 100 Hz, on the accelerometer and gyroscope | Four rotors whose speed follows the thrust (about 80 Hz in a hover), each with a small residual imbalance; injectable damaged-propeller and worn-bearing faults. Evaluated at the sample instants, so the rotor tones alias as they would at Node A's 100 Hz sampling ([edge-ai.md](edge-ai.md)) |
 
 Body axes are x forward, y left, z up, for both the accelerometer/gyroscope and
 the magnetometer. On a real LSM9DS1 the magnetometer axes need remapping.
@@ -119,6 +120,7 @@ python -m sim.mission --duration 90                       # writes build/mission
 python -m sim.mission --scenario link-loss --duration 25
 python -m sim.mission --scenario battery --duration 40
 python -m sim.mission --scenario no-avoidance --start 150 --duration 45
+python -m sim.mission --scenario prop-damage --duration 20
 ```
 
 | Scenario | What happens |
@@ -127,6 +129,8 @@ python -m sim.mission --scenario no-avoidance --start 150 --duration 45
 | `no-avoidance` | The same plan with an autopilot that ignores avoidance orders (fault injection) |
 | `link-loss` | The ground station's heartbeat stops at 12 s; the vehicle returns home |
 | `battery` | Starts at 22 % draining at 0.5 %/s: return home below 20 %, land below 10 % |
+| `prop-damage` | A propeller is damaged at 15 s; Node A's classifier raises a vibration alarm (HLR-009) |
+| `bearing-wear` | A motor bearing fails at 15 s; the same for a bearing fault |
 
 `--start` sets the along-track start position (the close pass begins at
 210 m), to reach the interesting part sooner.
@@ -149,8 +153,8 @@ Stop the display and the vehicle returns home 3 s later.
 
 ## Integration tests
 
-`tests/integration` flies four scenarios and checks the firmware against
-`truth.csv` (about 11 minutes in all):
+`tests/integration` flies six scenarios and checks the firmware against
+`truth.csv` (about 16 minutes in all):
 
 - `test_mission.py`, nominal from 150 m: the close pass stays at least 10 m
   from the line (HLR-001), one proximity warning within a control cycle of the
@@ -163,4 +167,7 @@ Stop the display and the vehicle returns home 3 s later.
 - `test_safety.py`, link-loss: RETURN_TO_HOME 3.0 to 3.3 s after the last
   heartbeat, and the vehicle turns back (HLR-003);
 - `test_safety.py`, battery: RETURN_TO_HOME below 20 %, LAND below 10 %, and a
-  1 m/s descent (HLR-004).
+  1 m/s descent (HLR-004);
+- `test_vibration.py`, prop-damage and bearing-wear: the right vibration alarm
+  reaches Node B within 2 s of the fault, none before it (HLR-009); and in
+  `test_mission.py`, no vibration alarm in the healthy flights.

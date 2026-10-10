@@ -13,10 +13,11 @@ Implementation: [`tasks.c`](../firmware/node_a/src/tasks.c),
 
 | Task | Priority | Period | Work |
 |------|----------|--------|------|
-| CanTxTask | 5 (highest) | 2 ms | One CAN slot of the 20 ms schedule; receives Node B's frames ([can-messages.md](can-messages.md)) |
-| ImuTask | 4 | 10 ms | IMU sample (100 Hz) and heading filter |
-| ControlTask | 3 | 20 ms | GPS sentences, safety logic and autopilot orders ([autopilot-link.md](autopilot-link.md)), flight-data records at 10 Hz |
-| LoadTask | 2 | - | Idle; only used by the priority-inversion demonstration |
+| CanTxTask | 6 (highest) | 2 ms | One CAN slot of the 20 ms schedule; receives Node B's frames ([can-messages.md](can-messages.md)) |
+| ImuTask | 5 | 10 ms | IMU sample (100 Hz), heading filter, the vibration window |
+| ControlTask | 4 | 20 ms | GPS sentences, safety logic and autopilot orders ([autopilot-link.md](autopilot-link.md)), flight-data records at 10 Hz |
+| LoadTask | 3 | - | Idle; only used by the priority-inversion demonstration |
+| AiTask | 2 | 320 ms | Vibration features, INT8 classifier and alarm ([edge-ai.md](edge-ai.md)); woken by ImuTask |
 | LogTask | 1 | 10 ms | Debug console, flash recorder writes, watchdog supervision, the 1 s report |
 | Idle | 0 | - | `WFI` until the next interrupt |
 
@@ -24,7 +25,10 @@ Rate-monotonic order: the shorter the period, the higher the priority. The
 periodic tasks use `xTaskDelayUntil`, so their periods do not drift with their
 execution time. The tick is 1 kHz.
 
-The task planned as AiTask (line detection) arrives with Phase 5.
+AiTask (Phase 5) has the longest period, so it runs below every other periodic
+task but LogTask. It is not supervised by the watchdog (below): the classifier
+is advisory, and if it stops it is reported as inactive instead of resetting
+the flight-control node.
 
 ## Design decisions
 
@@ -60,18 +64,19 @@ resets the node. The debug key `k` suspends ControlTask to show this
 
 ## Stack margins
 
-Each task has 512 words (2 KiB) of stack. The high-water marks are reported
-every 10 s; in the mission co-simulation the free words were:
+Each task has 512 words (2 KiB) of stack, except AiTask with 768 words for the
+feature buffers and the TFLM interpreter. The high-water marks are reported
+every 10 s; in the mission co-simulations the fewest free words were:
 
-| CanTxTask | ImuTask | ControlTask | LogTask |
-|-----------|---------|-------------|---------|
-| 432 | 419 | 396 | 316 |
+| CanTxTask | ImuTask | ControlTask | AiTask | LogTask |
+|-----------|---------|-------------|--------|---------|
+| 420 | 417 | 396 | 355 | 304 |
 
 The test suite requires at least 100 free words in each.
 
 ## Priority inversion
 
-The flight recorder's queue is shared by ControlTask (priority 3), which
+The flight recorder's queue is shared by ControlTask (priority 4), which
 queues a record every 100 ms and checks the queue every cycle, and LogTask
 (priority 1), which writes the records to flash. If LogTask holds the lock and
 a medium-priority task becomes ready, LogTask stops running, and ControlTask,
@@ -80,7 +85,7 @@ unbounded priority inversion (the Mars Pathfinder failure).
 
 The demonstration (debug keys `i` and `m`) reproduces it: LogTask holds the
 recorder lock for 5 ms of "flash work", and at that moment LoadTask
-(priority 2) starts a 100 ms CPU burst.
+(priority 3) starts a 100 ms CPU burst.
 
 | Recorder lock | ControlTask's longest wait | Control deadlines missed |
 |---------------|----------------------------|--------------------------|

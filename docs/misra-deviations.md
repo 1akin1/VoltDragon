@@ -11,3 +11,13 @@ risk is controlled. Compliance is checked with cppcheck's MISRA addon in Phase 6
 | D-003 | 18.2 / 18.3 (pointer subtraction/comparison between different objects) | `startup_stm32f4.c` | Section boundaries are separate linker symbols, but they delimit one contiguous region. | The linker script guarantees ordering and 4-byte alignment of the boundaries. |
 | D-004 | 11.1 (conversion between function pointer and other type) | `fault.c`, `fault_trigger()` | Branching to an address with the Thumb bit cleared is deliberately invalid, to test the fault handler. | Only reachable from the debug console, to be removed or compiled out for flight builds. |
 | D-005 | 2.1 / 1.2 (unreachable code, language extensions) | `fault.c`, `startup_stm32f4.c` | Naked functions and inline assembly are required for exception entry, `wfi`, `dsb`/`isb` and `udf`. | Assembly is limited to short, documented sequences. |
+
+## Scope
+
+The MISRA C subset applies to the project's C code. Node A's thin wrapper around
+TensorFlow Lite Micro (`vib_model.cc`, `tflm_port.cc`) is C++, and the vendored
+TFLM sources (`third_party/tflite-micro`) are third-party code, like FreeRTOS and
+lwIP; none of these is checked against MISRA C. The wrapper is kept small: it
+allocates nothing, uses no exceptions or RTTI, and is reached only through the C
+interface in `vib_model.h`. `tflm_port.cc` formats TFLM's messages with
+`vsnprintf`, under the same reasoning as D-001.

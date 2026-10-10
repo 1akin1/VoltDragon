@@ -55,3 +55,8 @@ the traceability matrix produced in Phase 6, following a DO-178C-style process.
   values taken from a regulation.
 - Timing requirements are verified in Renode, which is not cycle-accurate. They must
   be re-verified on real hardware (see README, *To be verified in the hardware phase*).
+- HLR-009 does not say how small a fault must be detected. Phase 5 set the limit at
+  severity 0.3 of the plant's fault model (0.075 g of rotor imbalance at hover), after a
+  soak test showed that weaker faults overlap with a rough but healthy airframe
+  ([edge-ai.md](../edge-ai.md)). A future revision of HLR-009 should state this limit
+  and a maximum false-alarm rate.

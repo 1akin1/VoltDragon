@@ -38,7 +38,7 @@ and with the ground-station display over a TAP link ([simulation.md](simulation.
 
 ## Phase 4 - RTOS and safety logic (week 4)
 - [x] Move to FreeRTOS: `ImuTask`, `ControlTask`, `CanTxTask`, `LogTask` ([rtos.md](rtos.md));
-      `AiTask` arrives with its model in Phase 5
+      `AiTask` arrived with its model in Phase 5
 - [x] Write the safe-distance check and the return-to-home-on-link-loss state machine,
       with the battery failsafes and operator mode commands ([autopilot-link.md](autopilot-link.md))
 - [x] Reproduce a priority-inversion scenario and fix it with a mutex (85 ms → 5 ms worst-case wait)
@@ -52,11 +52,20 @@ closed loop by `tests/integration/test_mission.py` (the close pass stays 10 m cl
 `test_safety.py` (link loss, battery).
 
 ## Phase 5 - Edge AI (week 5)
-- [ ] Inject a motor/propeller vibration fault in the plant model and collect data
-- [ ] Train a small model, quantise it to INT8 and report the accuracy difference against FP32
-- [ ] Run it on Node A with TFLite Micro and add the fault alarm to telemetry
+- [x] Inject a motor/propeller vibration fault in the plant model and collect data: a damaged
+      propeller or a worn motor bearing, 400 randomised flights ([edge-ai.md](edge-ai.md))
+- [x] Train a small model, quantise it to INT8 and report the accuracy difference against FP32:
+      99.98 % for both on the test windows, no false alarm in a 3 h soak
+      ([report](vibration-model-report.md))
+- [x] Run it on Node A with TFLite Micro and add the fault alarm to telemetry (CAN HEALTH
+      message, telemetry version 4, ground-station alarm and fault-score plot)
+- [x] Added beyond the original plan: two fault classes instead of one; the C features and the
+      on-target model checked bit for bit against the Python reference; a vendored, minimal
+      TFLite Micro subset with a script that regenerates it
 
 **Milestone:** An injected fault is detected on the MCU and shows up at the ground station.
+✅ Verified by `tests/integration/test_vibration.py` (the plant's fault at 15.0 s reaches Node B
+at 15.999 s, HLR-009: within 2 s), `tests/robot/node_a_ai.robot` and `system_telemetry.robot`.
 
 ## Phase 6 - Process and documentation (week 6)
 - [ ] Produce the HLR -> LLR -> code -> test traceability matrix

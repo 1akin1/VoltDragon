@@ -89,7 +89,7 @@ jobs:
       - name: Run Robot Framework tests
         run: renode-test -r build/robot tests/robot/*.robot
 
-      - name: Run the co-simulated flights (plant model + both nodes, about 11 minutes)
+      - name: Run the co-simulated flights (plant model + both nodes, about 16 minutes)
         run: |
           pip install pytest
           python -m pytest tests/integration --basetemp build/mission-test
