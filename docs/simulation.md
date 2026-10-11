@@ -151,6 +151,18 @@ python -m ground_station.display --record build/mission/flight.tlm
 With `--tap` the simulated heartbeat is off: the display sends it over UDP.
 Stop the display and the vehicle returns home 3 s later.
 
+Without a TAP device (and without root), `--record` captures Node B's telemetry
+inside Renode (`renode/telemetry_capture.py`) and saves it, timestamped in
+mission time, for the display to replay or render as a video:
+
+```sh
+python -m sim.mission --scenario link-loss --duration 25 --record build/link-loss.tlm
+python -m ground_station.display --replay build/link-loss.tlm
+python -m ground_station.display --replay build/link-loss.tlm --video link-loss.gif --follow 250
+```
+
+`tools/demo/make_clips.sh` does this for the five demo scenarios ([demo](demo.md)).
+
 ## Integration tests
 
 `tests/integration` flies six scenarios and checks the firmware against

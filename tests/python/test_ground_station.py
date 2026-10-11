@@ -124,15 +124,39 @@ def test_can_errors_alarm_when_counters_grow() -> None:
     assert "CAN ERRORS" in [a.name for a in state.alarms(1.1)]
 
 
+def write_recording(path, packets: int = 50) -> None:
+    """A recording as the display or the co-simulation's capture writes it, at 10 Hz."""
+    with path.open("wb") as f:
+        for k in range(packets):
+            datagram = encode(packet(k, offset_m=20.0 - 0.2 * k))
+            f.write(struct.pack("<dH", 0.1 * k, len(datagram)) + datagram)
+
+
 def test_display_renders_a_replay(tmp_path) -> None:
     pytest.importorskip("matplotlib")
     from ground_station import display
 
     recording = tmp_path / "flight.tlm"
-    with recording.open("wb") as f:
-        for k in range(50):
-            datagram = encode(packet(k, offset_m=20.0 - 0.2 * k))
-            f.write(struct.pack("<dH", 0.1 * k, len(datagram)) + datagram)
+    write_recording(recording)
     image = tmp_path / "view.png"
     assert display.main(["--replay", str(recording), "--snapshot", str(image)]) == 0
     assert image.stat().st_size > 10_000
+
+
+def test_display_renders_a_replay_as_a_video(tmp_path) -> None:
+    pytest.importorskip("matplotlib")
+    pytest.importorskip("PIL")
+    from PIL import Image
+
+    from ground_station import display
+
+    recording = tmp_path / "flight.tlm"
+    write_recording(recording, packets=21)
+    video = tmp_path / "clip.gif"
+    # 2 s of recording at 2x speed and 5 frames per second: a frame every 0.4 s of
+    # mission time, from 0 to 2 s inclusive.
+    assert display.main(["--replay", str(recording), "--video", str(video), "--fps", "5",
+                         "--speed", "2", "--follow", "200", "--title", "test"]) == 0
+    with Image.open(video) as clip:
+        assert clip.n_frames == 6
+        assert clip.size == (1500, 1000)

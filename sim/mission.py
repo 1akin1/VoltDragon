@@ -2,6 +2,7 @@
 
 Usage (Linux/WSL, from the repository root, firmware built with the debug preset):
     python -m sim.mission [--scenario nominal] [--duration 90] [--start 0] [--out DIR] [--tap]
+                          [--record FILE]
 
 Scenarios:
     nominal        the inspection pass; the close part of the plan comes within 4 m
@@ -25,6 +26,10 @@ ground station on the host receives the telemetry and sends the heartbeat
 itself (Renode then needs root to create the TAP device):
     sudo ip addr add 192.168.10.1/24 dev tap0 && sudo ip link set tap0 up
     python -m ground_station.display
+
+With --record, Node B's telemetry is captured inside Renode instead (no TAP device,
+no root) and saved for the ground station to replay, or to render as a video:
+    python -m ground_station.display --replay FILE [--video clip.mp4]
 """
 
 from __future__ import annotations
@@ -64,6 +69,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--duration", type=float, default=90.0, help="simulated seconds")
     parser.add_argument("--out", type=Path, default=REPO / "build" / "mission")
     parser.add_argument("--tap", action="store_true", help="bridge Node B to tap0")
+    parser.add_argument("--record", type=Path,
+                        help="save Node B's telemetry for ground_station.display --replay")
     parser.add_argument("--port", type=int, default=4567, help="Renode monitor port")
     args = parser.parse_args(argv)
 
@@ -87,6 +94,12 @@ def main(argv: list[str] | None = None) -> int:
         for node in ("node_a", "node_b"):
             monitor.execute(f'mach set "{node}"')
             monitor.execute(f"sysbus.usart2 CreateFileBackend @{out / (node + '.log')} true")
+        if args.record:
+            record = args.record.resolve()
+            record.unlink(missing_ok=True)
+            monitor.execute(f"include @{REPO / 'renode' / 'telemetry_capture.py'}")
+            monitor.execute('mach set "node_b"')
+            monitor.execute(f"tlm_capture @{record}")
         autopilot_path = out / "autopilot_rx.log"
         monitor.execute('mach set "node_a"')
         monitor.execute(f"sysbus.uart5 CreateFileBackend @{autopilot_path} true")

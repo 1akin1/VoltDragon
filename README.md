@@ -1,214 +1,187 @@
 # VoltDragon
 
-Avionics software for a **power-line inspection UAV** that runs **entirely in
-simulation**, with no physical boards.
+[![CI](https://github.com/1akin1/VoltDragon/actions/workflows/ci.yml/badge.svg)](https://github.com/1akin1/VoltDragon/actions/workflows/ci.yml)
 
-Two virtual **STM32F4 (Cortex-M4)** nodes run in the [Renode](https://renode.io)
-emulator. A Python **plant model** simulates flight dynamics, sensor noise and
-faults, and a Python **ground station** on Linux shows telemetry and sends commands.
-The same firmware is meant to be ported to a real Nucleo board later.
+Avionics software for a **power-line inspection UAV**, built and verified
+**entirely in simulation**.
 
-**Topics covered:** embedded C · ARM Cortex-M · I2C / SPI / UART / CAN / Ethernet ·
-FreeRTOS · DO-178C-style process · MISRA C · MC/DC · Edge AI (TFLite Micro) · ARINC 429
+Two **STM32F407 (Cortex-M4F)** nodes run their real firmware in the
+[Renode](https://renode.io) emulator. A Python **plant model** flies the vehicle
+along a high-voltage line, with wind, sensor noise, magnetic interference from the
+line and rotor faults, and closes the loop with the firmware. A Python **ground
+station** shows the flight and sends commands. The work follows a
+**DO-178C-style process**: requirements traced to code and tests, MISRA C, and
+MC/DC coverage of the safety logic, all checked in CI.
+
+**Topics:** embedded C · ARM Cortex-M · startup code and linker scripts · I2C / SPI /
+UART / CAN / Ethernet drivers · FreeRTOS · lwIP · ARINC 429 · Edge AI (TensorFlow Lite
+Micro, INT8) · Renode · Robot Framework · DO-178C-style traceability · MISRA C:2012 · MC/DC
+
+![Ground station during the inspection mission](docs/images/ground_station.png)
+
+## What it does
+
+| Area | Implemented | Evidence |
+|------|-------------|----------|
+| Bare metal | Own startup code and linker script, register-level drivers for every peripheral, watchdog, HardFault capture, a reset record that survives resets | [debugging](docs/debugging.md), `node_a_boot.robot` |
+| Sensors | LSM9DS1 IMU over I2C at 100 Hz, NMEA GPS, a flight data recorder on SPI flash that never blocks the control loop | `node_a_imu.robot`, `node_a_flashlog.robot` |
+| Networks | CAN between the nodes (sequence counter and CRC on every frame), UDP telemetry and commands with lwIP on Node B's own Ethernet driver, ARINC 429 output | [CAN](docs/can-messages.md), [telemetry](docs/telemetry.md), [ARINC 429](docs/arinc429.md) |
+| Real time | FreeRTOS, rate-monotonic tasks, static allocation, a watchdog fed only while every task runs; a priority inversion reproduced and fixed | [RTOS](docs/rtos.md) |
+| Safety | Keeps 10 m from the line, returns home on link loss or low battery, lands on critical battery; operator modes through one transition table | [safety logic](docs/autopilot-link.md), [MC/DC report](docs/mcdc-report.md) |
+| Fault detection | Detects magnetometer corruption near the line and falls back to the GPS course; an INT8 neural network detects propeller and bearing faults on the MCU | [simulation](docs/simulation.md), [Edge AI](docs/edge-ai.md) |
+| Process | 20 high-level and 97 low-level requirements traced to code and tests; MISRA C:2012 with documented deviations; 100 % MC/DC of the safety logic | [traceability](docs/traceability.md), [MISRA](docs/misra-report.md), [MC/DC](docs/mcdc-report.md) |
+
+## Results
+
+Measured in the co-simulation and checked by the tests on every commit:
+
+| Requirement | Result |
+|-------------|--------|
+| Never closer than 10 m to the line (HLR-001) | The close pass, planned at 4 m from a conductor, stays more than 10 m away |
+| Proximity warning within 100 ms (HLR-002) | In the same 20 ms control cycle as the GPS fix |
+| Return to home after 3 s without the ground link (HLR-003) | Link declared lost 3.0-3.3 s after the last heartbeat, return to home within 50 ms of that |
+| Vibration fault reported within 2 s (HLR-009) | About 1 s from fault onset to the ground station |
+| Priority inversion (Phase 4 demonstration) | Worst-case wait 85 ms with a semaphore, 5 ms with priority inheritance |
+| Vibration classifier | INT8 model matches FP32 (99.98 % of test windows), no false alarm in 3 h of fault-free flight |
+
+| Verification | Count |
+|--------------|------:|
+| Host unit test programs (ctest) | 12 |
+| Python tests (pytest) | 150 |
+| Renode system tests (Robot Framework) | 76 |
+| Closed-loop co-simulated flights | 21 tests over 6 scenarios |
+| Test cases traced to a requirement | 217 |
+| Open MISRA C:2012 findings | 0 |
+| MC/DC of the safety logic (`safety.c`) | 24 / 24 conditions |
 
 ## Architecture
 
 ```mermaid
-flowchart TB
-    plant["<b>Python plant model</b><br/>flight dynamics, wind, sensor noise<br/>magnetometer corruption, vibration faults"]
+flowchart LR
+    plant["<b>Plant model</b> (Python)<br/>vehicle, wind, autopilot<br/>IMU, GPS, line field, faults"]
     subgraph renode["Renode emulator"]
-        direction LR
-        a["<b>Node A: sensing and control</b><br/>FreeRTOS, I2C IMU, SPI flash log<br/>safe distance and return-to-home logic<br/>TFLite Micro vibration anomaly detection"]
-        b["<b>Node B: gateway</b><br/>CAN to UDP telemetry (lwIP)<br/>ARINC 429 output (SPI transmitter)<br/>UART command interface"]
-        a -- CAN --> b
+        direction TB
+        a["<b>Node A</b>: sensing and safety<br/>FreeRTOS · IMU · GPS · flash recorder<br/>safety logic · TFLite Micro classifier"]
+        b["<b>Node B</b>: gateway<br/>lwIP UDP telemetry · commands<br/>ARINC 429 output"]
+        a -- "CAN 500 kbit/s" --> b
     end
-    gs["<b>Ground station (Python, Linux)</b><br/>map, telemetry plots, alarms<br/>command uplink, Wireshark analysis"]
-    plant -- "sensor and fault data" --> a
+    gs["<b>Ground station</b> (Python)<br/>map, plots, alarms, heartbeat"]
+    plant -- "I2C, UART: sensors, autopilot" --> a
+    a -- "UART: orders" --> plant
     b -- "UDP telemetry" --> gs
-    gs -- commands --> b
+    gs -- "commands" --> b
 ```
+
+Buses, pins, tasks and an end-to-end safety event: [architecture](docs/architecture.md).
+
+## Quick start
+
+Linux (or WSL on Windows) with `arm-none-eabi-gcc`, CMake 3.20+, Ninja, Python 3.11+
+and Renode 1.17.
+
+```sh
+git clone --recurse-submodules https://github.com/1akin1/VoltDragon.git
+cd VoltDragon
+python -m venv .venv && source .venv/bin/activate
+pip install -e ".[dev]"
+
+# Build both nodes' firmware
+cmake --preset debug
+cmake --build --preset debug
+
+# Run both nodes on a shared CAN bus (debug keys and GDB: docs/debugging.md)
+renode renode/system.resc
+
+# Fly the inspection mission: the plant model drives both nodes (docs/simulation.md)
+python -m sim.mission --duration 90 --record build/mission.tlm
+python -m ground_station.display --replay build/mission.tlm
+# Other scenarios: no-avoidance, link-loss, battery, prop-damage, bearing-wear
+python -m sim.mission --scenario link-loss --duration 25
+```
+
+To watch a flight live, Node B's Ethernet can be bridged to the host instead
+(`sudo python -m sim.mission --tap`, then `python -m ground_station.display`; see
+[telemetry](docs/telemetry.md)).
+
+### Tests and checks
+
+```sh
+# Host unit tests (native gcc)
+cmake --preset host-tests && cmake --build --preset host-tests && ctest --preset host-tests
+
+# Renode system tests (needs: pip install -r /opt/renode/tests/requirements.txt)
+renode-test -r build/robot tests/robot/*.robot
+
+# Closed-loop flights, checked against the plant's ground truth (about 20 minutes)
+python -m pytest tests/integration
+
+# Python tests and lint
+pytest && ruff check .
+
+# Process checks (each fails if its report is out of date)
+python tools/trace/trace.py --check      # traceability matrix
+python3 tools/misra/misra.py --check     # MISRA C:2012, cppcheck 2.10, after cmake --preset debug
+python3 tools/coverage/mcdc.py --check   # MC/DC, clang 19
+```
+
+Retraining the vibration classifier (optional; the trained model is committed):
+`pip install -e ".[ml]"`, then `python -m ml.dataset --out build/ml/dataset.npz` and
+`python -m ml.train --dataset build/ml/dataset.npz` ([Edge AI](docs/edge-ai.md)).
+
+## Documentation
+
+| Topic | Pages |
+|-------|-------|
+| Overview | [architecture](docs/architecture.md), [roadmap](docs/roadmap.md), [demo video plan](docs/demo.md) |
+| Requirements and process | [HLR](docs/requirements/HLR.md), [LLR](docs/requirements/LLR.md), [traceability matrix](docs/traceability.md), [MISRA compliance plan](docs/misra-deviations.md), [MISRA report](docs/misra-report.md), [MC/DC report](docs/mcdc-report.md) |
+| Node A | [RTOS](docs/rtos.md), [autopilot link and safety logic](docs/autopilot-link.md), [Edge AI](docs/edge-ai.md), [vibration model report](docs/vibration-model-report.md) |
+| Node B and buses | [CAN messages](docs/can-messages.md), [telemetry](docs/telemetry.md), [command interface](docs/command-interface.md), [ARINC 429](docs/arinc429.md) |
+| Simulation and debugging | [simulation](docs/simulation.md), [debugging](docs/debugging.md), [Robot tests](tests/robot/README.md) |
 
 ## Repository layout
 
 | Path | Contents |
 |------|----------|
-| `firmware/node_a` | Sensing and flight-control node |
-| `firmware/node_b` | Gateway node |
-| `firmware/common` | Code shared by both nodes |
+| `firmware/node_a` | Sensing and safety node (FreeRTOS) |
+| `firmware/node_b` | Gateway node (bare metal) |
+| `firmware/common` | Startup code, drivers and protocols shared by both nodes |
 | `cmake/` | Cross-compilation toolchain file |
-| `renode/` | Renode platform and start-up scripts |
-| `sim/plant` | Python plant model: route, line field, vehicle, wind, IMU and GPS |
-| `sim/` | Co-simulation with Renode and the mission runner |
-| `ml/` | Edge AI: vibration dataset, features, training and INT8 quantisation; the trained models in `ml/models` |
-| `ground_station/` | Python ground station: map, plots and alarms; receiver and command tools |
-| `third_party/lwip` | lwIP 2.2.1 TCP/IP stack (git submodule) |
-| `third_party/freertos` | FreeRTOS kernel (git submodule) |
-| `third_party/tflite-micro` | The part of TensorFlow Lite Micro that Node A uses (vendored by `tools/tflm/vendor.sh`) |
-| `tests/robot` | Robot Framework system tests (Renode) |
-| `tests/unit` | Host unit tests for hardware-independent firmware modules (ctest) |
-| `tests/python` | pytest unit tests (plant model, ground station) |
-| `tests/integration` | End-to-end mission: plant model driving both nodes in Renode |
-| `tools/gdb` | GDB helpers (fault-frame decoding) |
-| `tools/tflm` | Script that vendors the TensorFlow Lite Micro subset |
-| `tools/trace` | Generator and CI check for the traceability matrix |
-| `tools/misra` | MISRA C:2012 check (cppcheck) and report generator |
-| `tools/coverage` | MC/DC coverage measurement (clang) and report generator |
-| `docs/` | [Roadmap](docs/roadmap.md), [HLR](docs/requirements/HLR.md), [LLR](docs/requirements/LLR.md), [traceability matrix](docs/traceability.md), [debugging](docs/debugging.md), [command interface](docs/command-interface.md), [CAN messages](docs/can-messages.md), [telemetry](docs/telemetry.md), [simulation](docs/simulation.md), [RTOS](docs/rtos.md), [autopilot link and safety logic](docs/autopilot-link.md), [Edge AI](docs/edge-ai.md), [vibration model report](docs/vibration-model-report.md), [MISRA compliance plan](docs/misra-deviations.md), [MISRA report](docs/misra-report.md), [MC/DC report](docs/mcdc-report.md), [ARINC 429](docs/arinc429.md) |
+| `renode/` | Renode platforms and scripts; the ARINC 429 transmitter model |
+| `sim/` | Plant model (`sim/plant`), co-simulation and the mission runner |
+| `ground_station/` | Display, telemetry decoder, command tool |
+| `ml/` | Vibration dataset, features, training and INT8 quantisation; trained models |
+| `tests/unit` | Host unit tests (ctest), including the MC/DC test set for the safety logic |
+| `tests/robot` | Robot Framework system tests in Renode |
+| `tests/integration` | Closed-loop flights: plant model and both nodes |
+| `tests/python` | pytest: plant model, ground station, ML pipeline |
+| `tools/` | Traceability (`trace`), MISRA (`misra`), MC/DC (`coverage`), demo clips (`demo`), GDB helpers, TFLM vendoring |
+| `third_party/` | lwIP 2.2.1 and FreeRTOS (submodules), the TensorFlow Lite Micro subset Node A uses |
 
-## Building
-
-Prerequisites: `arm-none-eabi-gcc`, CMake 3.20 or newer, Ninja, Python 3.11 or newer
-and Renode 1.17. Development is done on Linux (WSL on Windows).
-
-```sh
-# Get the sources, including the lwIP submodule
-git clone --recurse-submodules <repository-url>
-# (or, in an existing clone: git submodule update --init)
-
-# Firmware
-cmake --preset debug
-cmake --build --preset debug
-
-# Run Node A in Renode (see docs/debugging.md for the debug keys and GDB)
-renode renode/node_a.resc
-
-# Run both nodes on a shared CAN bus
-renode renode/system.resc
-
-# Both nodes plus a real ground station link over a TAP interface (see docs/telemetry.md)
-sudo renode renode/ground_link.resc
-
-# Host unit tests for hardware-independent firmware modules (native gcc)
-cmake --preset host-tests
-cmake --build --preset host-tests
-ctest --preset host-tests
-
-# MISRA C:2012 check with cppcheck 2.10 (after cmake --preset debug; see docs/misra-deviations.md)
-python3 tools/misra/misra.py
-
-# MC/DC coverage of the host unit tests (needs clang-19, llvm-19, libclang-rt-19-dev)
-python3 tools/coverage/mcdc.py
-
-# Renode system tests (needs: pip install -r /opt/renode/tests/requirements.txt)
-renode-test -r build/robot tests/robot/*.robot
-
-# Python plant model and ground station
-python -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
-pip install -e ".[dev]"
-pytest
-
-# Fly the inspection mission: the plant model drives both nodes in Renode (docs/simulation.md)
-python -m sim.mission --duration 90
-python -m sim.mission --scenario link-loss --duration 25   # or: battery, no-avoidance
-python -m sim.mission --scenario prop-damage --duration 20     # or: bearing-wear
-python -m pytest tests/integration          # six flights, checked against ground truth
-
-# Retrain the vibration classifier (optional; the trained model is committed). Python 3.11/3.12
-pip install -e ".[ml]"
-python -m ml.dataset --out build/ml/dataset.npz
-python -m ml.train --dataset build/ml/dataset.npz
-
-# ... with the ground-station display on the host (as root: Renode creates a TAP device)
-sudo python -m sim.mission --tap &
-sudo ip addr add 192.168.10.1/24 dev tap0 && sudo ip link set tap0 up
-python -m ground_station.display
-```
-
-## Status
-
-Phase 1 complete: bare-metal Node A with its own startup code, linker script,
-register-level UART, watchdog, fault handler and a reset record that survives resets.
-
-Phase 2 complete: IMU data travels from Node A over CAN to Node B, and on to the
-ground station over UDP.
-
-- Node A reads an LSM9DS1 IMU over a register-level I2C driver at 100 Hz and
-  records flight data at 10 Hz to an MT25Q SPI flash, without ever waiting for the
-  flash in the main loop.
-- Node A sends its sensor and status data to Node B over CAN at 50 Hz, each frame
-  protected by a sequence counter and an end-to-end CRC ([CAN messages](docs/can-messages.md)).
-- Node B broadcasts CRC-protected UDP telemetry through lwIP on its own Ethernet
-  driver, and accepts checksummed, acknowledged operator commands over UART and
-  UDP ([telemetry](docs/telemetry.md), [command interface](docs/command-interface.md)).
-
-Phase 3 complete: the UAV flies along a simulated power line and is monitored from
-the ground station.
-
-- A Python plant model flies a multirotor along the line in gusty wind and drives
-  Node A's IMU and a simulated GPS receiver inside Renode, in lockstep with the
-  firmware ([simulation](docs/simulation.md)).
-- Near the conductors, the line current's magnetic field corrupts the magnetometer.
-  Node A detects this from the field strength and dip angle, stops using the
-  magnetometer heading and falls back to the GPS course (HLR-008).
-- The ground station shows the route, the vehicle's track and position, the
-  distance to the line, the measured field and heading, and alarms.
-
-![Ground station during the inspection mission](docs/images/ground_station.png)
-
-Phase 4 complete: Node A runs on FreeRTOS and keeps the vehicle safe.
-
-- Rate-monotonic tasks with static allocation, a watchdog that is reloaded only
-  while every periodic task runs, and a reproduced priority inversion (85 ms of
-  blocking) fixed by priority inheritance (5 ms) ([RTOS](docs/rtos.md)).
-- Node A commands the autopilot over a serial link: below 12 m from a conductor it
-  raises a proximity warning and orders the vehicle away; it returns home 3 s after
-  losing the ground station and below 20 % battery, and lands below 10 %. Operator
-  mode commands go through a transition table, and only an explicit override leaves
-  return-to-home ([autopilot link and safety logic](docs/autopilot-link.md)).
-- The plant now includes an autopilot that obeys those orders, so the safety logic is
-  tested in closed loop: the close pass, which the plan flies at 4 m from a conductor,
-  stays more than 10 m away.
-
-Phase 5 complete: Node A detects motor and propeller faults with an INT8 neural
-network on TensorFlow Lite Micro ([Edge AI](docs/edge-ai.md)).
-
-- The plant model's rotors shake the IMU; a damaged propeller or a worn motor
-  bearing can be injected. 400 randomised flights give 24000 s of labelled data.
-- A 1955-parameter network on 42 spectral features, quantised to INT8, matches
-  FP32 accuracy (99.98 % of test windows) and raised no false alarm in 3 hours
-  of fault-free flight ([report](docs/vibration-model-report.md)). On Node A it
-  runs in AiTask from a 2 KB static arena, and its output matches the Python
-  reference bit for bit.
-- The alarm travels over CAN and UDP telemetry to the ground station, which
-  names the fault and plots the fault score: in the co-simulation, about 1 s
-  after the fault (HLR-009 requires 2 s).
-
-Phase 6 in progress: process and documentation.
-
-- The [traceability matrix](docs/traceability.md) links all 20 HLRs to 97 LLRs, the
-  code that implements them and 217 test cases. It is generated from the
-  requirements tables by `python tools/trace/trace.py`, which fails CI if a named
-  file or test no longer exists or the matrix is out of date.
-- The C flight software has no open finding from cppcheck's MISRA C:2012 addon
-  ([report](docs/misra-report.md)). The [compliance plan](docs/misra-deviations.md)
-  disapplies two advisory rules and records six deviations and five false positives
-  of the tool; every other finding was fixed in the code. CI fails on any new finding.
-- Node A's safety logic (`safety.c`) reaches 100 % statement, decision and MC/DC
-  coverage (24 of 24 conditions) in a new host test with test doubles for its inputs
-  ([MC/DC report](docs/mcdc-report.md)); measured with clang 19 and checked in CI.
-- Node B sends altitude, true heading and the distance to the line as ARINC 429 BNR
-  words at 20 Hz, through a transmitter on SPI2 ([ARINC 429](docs/arinc429.md)). The
-  transmitter is a Renode model whose bus monitor decodes every word on its own, so
-  the system tests check the encoding against an independent decoder.
-
-See the [roadmap](docs/roadmap.md).
-
-## Limitations: to be verified in the hardware phase
+## Limitations: to be verified on hardware
 
 Renode is **not cycle-accurate**, and some peripherals are simplified (for example,
-the RCC reset flags are not modelled; see [debugging.md](docs/debugging.md)). Renode's
+the RCC reset flags are not modelled; see [debugging](docs/debugging.md)). Renode's
 LSM9DS1 model scales its outputs by ideal counts per unit rather than the datasheet
 sensitivities, so the firmware reads the gyroscope 5 % and the magnetometer 14.7 % high
 in simulation (see [node_a_imu.robot](tests/robot/node_a_imu.robot)); the co-simulation
 compensates for this, and for other model differences listed in
-[simulation.md](docs/simulation.md). The magnetometer and accelerometer axes are
-assumed aligned; a real LSM9DS1 needs its magnetometer axes remapped. Timing figures such as interrupt latency and
-inference time do not reflect real hardware. The vibration classifier is trained
-on simulated vibration, and at Node A's 100 Hz IMU rate the rotor tones (about
-80 Hz) alias; real hardware would read the LSM9DS1 FIFO at 952 Hz and need data
-from real airframes ([Edge AI: limitations](docs/edge-ai.md#limitations)). Electrical concerns (I2C pull-ups, CAN
-termination, signal integrity) are not simulated. The STM32F4 Ethernet MAC needs an
-AHB clock of at least 25 MHz, but both nodes run from the 16 MHz HSI; Node B needs
-the PLL enabled (and the clock-dependent settings updated) before its Ethernet can
-work on silicon. These items must be verified once the firmware runs on a real board.
+[simulation](docs/simulation.md). The magnetometer and accelerometer axes are assumed
+aligned; a real LSM9DS1 needs its magnetometer axes remapped. Timing figures such as
+interrupt latency and inference time do not reflect real hardware.
+
+The vibration classifier is trained on simulated vibration, and at Node A's 100 Hz
+IMU rate the rotor tones (about 80 Hz) alias; real hardware would read the LSM9DS1
+FIFO at 952 Hz and need data from real airframes
+([Edge AI: limitations](docs/edge-ai.md#limitations)). The ARINC 429 transmitter is
+a model with its own command set, not a real chip's ([ARINC 429](docs/arinc429.md)).
+Electrical concerns (I2C pull-ups, CAN termination, signal integrity) are not
+simulated. The STM32F4 Ethernet MAC needs an AHB clock of at least 25 MHz, but both
+nodes run from the 16 MHz HSI; Node B needs the PLL enabled (and the clock-dependent
+settings updated) before its Ethernet can work on silicon.
+
+## Status
+
+All seven phases of the [roadmap](docs/roadmap.md) are complete; the demo video is
+being recorded from the [plan](docs/demo.md). Next steps beyond the roadmap:
+insulator and hot-spot detection from a simulated camera, automatic fault reports
+with GPS positions, and porting the firmware to a real Nucleo board.

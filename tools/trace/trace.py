@@ -329,7 +329,7 @@ def render(hlrs: list[Hlr], llrs: list[Llr], repo: Repository) -> str:
         "",
         "Test cases that no LLR names. They verify the test environment rather than the",
         "flight software: the plant model, the simulated autopilot, the ground station's",
-        "command helper and the ML training pipeline. Under DO-178C these are tool",
+        "command and video tools and the ML training pipeline. Under DO-178C these are tool",
         "qualification concerns, not requirements-based tests.",
         "",
         "| File | Tests |",

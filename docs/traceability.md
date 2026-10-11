@@ -18,22 +18,22 @@ not exist. CI runs `python tools/trace/trace.py --check` to keep it current.
 | Low-level requirements | 97 |
 | Derived LLRs (no parent HLR) | 13 |
 | LLRs verified by at least one named test | 87 |
-| Test cases indexed (Robot / unit / pytest) | 256 (76 Robot, 104 Unit, 76 pytest) |
-| Test cases traced to an LLR | 217 |
+| Test cases indexed (Robot / unit / pytest) | 257 (76 Robot, 104 Unit, 77 pytest) |
+| Test cases traced to an LLR | 218 |
 
 ## HLR to LLR
 
 | HLR | Requirement | Verif. | LLRs | Tests |
 |-----|-------------|--------|------|-------|
-| HLR-001 | The system shall not let the UAV get closer than 10 m to the power line. | T | [LLR-102](#llr-102), [LLR-121](#llr-121) | 1 Robot, 3 Unit, 14 pytest |
-| HLR-002 | When the estimated line distance drops below 12 m, the system shall raise a `PROXIMITY_WARNING` within 100 ms and command a lateral move away from the line. | T | [LLR-102](#llr-102), [LLR-121](#llr-121), [LLR-130](#llr-130), [LLR-131](#llr-131) | 2 Robot, 9 Unit, 14 pytest |
-| HLR-003 | If the ground link is lost for more than 3 s, the system shall enter `RETURN_TO_HOME` mode. | T | [LLR-078](#llr-078), [LLR-102](#llr-102), [LLR-103](#llr-103), [LLR-122](#llr-122), [LLR-131](#llr-131) | 4 Robot, 5 Unit, 15 pytest |
-| HLR-004 | If battery state of charge falls below 20 %, the system shall enter `RETURN_TO_HOME` mode, and below 10 % it shall enter `LAND` mode. | T | [LLR-102](#llr-102), [LLR-123](#llr-123), [LLR-131](#llr-131) | 3 Robot, 6 Unit, 13 pytest |
+| HLR-001 | The system shall not let the UAV get closer than 10 m to the power line. | T | [LLR-102](#llr-102), [LLR-121](#llr-121) | 1 Robot, 3 Unit, 15 pytest |
+| HLR-002 | When the estimated line distance drops below 12 m, the system shall raise a `PROXIMITY_WARNING` within 100 ms and command a lateral move away from the line. | T | [LLR-102](#llr-102), [LLR-121](#llr-121), [LLR-130](#llr-130), [LLR-131](#llr-131) | 2 Robot, 9 Unit, 15 pytest |
+| HLR-003 | If the ground link is lost for more than 3 s, the system shall enter `RETURN_TO_HOME` mode. | T | [LLR-078](#llr-078), [LLR-102](#llr-102), [LLR-103](#llr-103), [LLR-122](#llr-122), [LLR-131](#llr-131) | 4 Robot, 5 Unit, 16 pytest |
+| HLR-004 | If battery state of charge falls below 20 %, the system shall enter `RETURN_TO_HOME` mode, and below 10 % it shall enter `LAND` mode. | T | [LLR-102](#llr-102), [LLR-123](#llr-123), [LLR-131](#llr-131) | 3 Robot, 6 Unit, 14 pytest |
 | HLR-005 | Mode transitions shall follow only the transitions defined in the flight-mode state machine; any undefined transition request shall be rejected and logged. | T, A | [LLR-120](#llr-120), [LLR-124](#llr-124), [LLR-126](#llr-126) | 4 Robot, 8 Unit |
 | HLR-006 | A ground-station command shall not override an active safety mode (`RETURN_TO_HOME`, `LAND`) unless the operator sends an explicit override command. | T | [LLR-120](#llr-120), [LLR-124](#llr-124), [LLR-126](#llr-126) | 4 Robot, 8 Unit |
 | HLR-007 | Node A shall sample the IMU at 100 Hz or faster. | T, A | [LLR-043](#llr-043), [LLR-044](#llr-044), [LLR-055](#llr-055), [LLR-110](#llr-110) | 4 Robot |
 | HLR-008 | Node A shall detect magnetometer readings that are corrupted by the power line's magnetic field and shall stop using magnetometer heading while the corruption lasts. | T | [LLR-093](#llr-093), [LLR-094](#llr-094), [LLR-095](#llr-095), [LLR-096](#llr-096) | 3 Robot, 4 pytest |
-| HLR-009 | Node A shall detect motor/propeller vibration faults by on-board inference and shall report a `VIBRATION_FAULT` alarm to the ground station within 2 s of fault onset. | T | [LLR-083](#llr-083), [LLR-102](#llr-102), [LLR-110](#llr-110), [LLR-140](#llr-140), [LLR-141](#llr-141), [LLR-142](#llr-142), [LLR-143](#llr-143), [LLR-144](#llr-144), [LLR-145](#llr-145), [LLR-146](#llr-146) | 12 Robot, 12 Unit, 15 pytest |
+| HLR-009 | Node A shall detect motor/propeller vibration faults by on-board inference and shall report a `VIBRATION_FAULT` alarm to the ground station within 2 s of fault onset. | T | [LLR-083](#llr-083), [LLR-102](#llr-102), [LLR-110](#llr-110), [LLR-140](#llr-140), [LLR-141](#llr-141), [LLR-142](#llr-142), [LLR-143](#llr-143), [LLR-144](#llr-144), [LLR-145](#llr-145), [LLR-146](#llr-146) | 12 Robot, 12 Unit, 16 pytest |
 | HLR-010 | Each sensor sample shall be range- and staleness-checked, and invalid data shall be flagged and excluded from control. | T | [LLR-004](#llr-004), [LLR-041](#llr-041), [LLR-042](#llr-042), [LLR-045](#llr-045), [LLR-074](#llr-074), [LLR-076](#llr-076), [LLR-090](#llr-090), [LLR-091](#llr-091), [LLR-092](#llr-092), [LLR-132](#llr-132), [LLR-162](#llr-162) | 13 Robot, 12 Unit, 1 pytest |
 | HLR-011 | Node A shall send sensor and status data to Node B over CAN at 50 Hz or faster. | T | [LLR-070](#llr-070), [LLR-072](#llr-072), [LLR-110](#llr-110) | 9 Robot, 1 pytest |
 | HLR-012 | Node B shall forward telemetry to the ground station as UDP packets at 10 Hz or faster. | T | [LLR-066](#llr-066), [LLR-080](#llr-080), [LLR-081](#llr-081), [LLR-082](#llr-082), [LLR-083](#llr-083), [LLR-125](#llr-125) | 13 Robot, 1 Unit, 1 pytest |
@@ -43,7 +43,7 @@ not exist. CI runs `python tools/trace/trace.py --check` to keep it current.
 | HLR-016 | Each node shall be supervised by a hardware watchdog and shall recover to a safe state after a watchdog reset. | T | [LLR-010](#llr-010), [LLR-011](#llr-011), [LLR-022](#llr-022), [LLR-031](#llr-031), [LLR-112](#llr-112), [LLR-113](#llr-113), [LLR-114](#llr-114), [LLR-115](#llr-115) | 8 Robot |
 | HLR-017 | Each node shall keep a reset counter and the last fault cause across resets, and shall report them in telemetry at start-up. | T | [LLR-003](#llr-003), [LLR-012](#llr-012), [LLR-013](#llr-013), [LLR-014](#llr-014), [LLR-020](#llr-020), [LLR-021](#llr-021), [LLR-023](#llr-023), [LLR-083](#llr-083), [LLR-115](#llr-115) | 12 Robot |
 | HLR-018 | Node A shall record flight data, mode changes and alarms to SPI flash at 10 Hz or faster. | T | [LLR-051](#llr-051), [LLR-052](#llr-052), [LLR-053](#llr-053), [LLR-054](#llr-054), [LLR-055](#llr-055), [LLR-056](#llr-056), [LLR-057](#llr-057), [LLR-058](#llr-058), [LLR-144](#llr-144) | 8 Robot, 1 Unit |
-| HLR-019 | The ground station shall show the UAV position on a map, live telemetry plots and active alarms. | I, T | [LLR-100](#llr-100), [LLR-101](#llr-101), [LLR-102](#llr-102) | 17 pytest |
+| HLR-019 | The ground station shall show the UAV position on a map, live telemetry plots and active alarms. | I, T | [LLR-100](#llr-100), [LLR-101](#llr-101), [LLR-102](#llr-102) | 18 pytest |
 | HLR-020 | All flight software shall comply with the project's MISRA C:2012 subset, and every deviation shall be documented. | A | [LLR-150](#llr-150) | - |
 
 ## LLR to code and tests
@@ -419,12 +419,12 @@ not exist. CI runs `python tools/trace/trace.py --check` to keep it current.
 <a id="llr-101"></a>**LLR-101** (HLR-019): The ground station shall show the route, the vehicle's track and position, the distance to the nearest conductor, the measured field strength, the heading with its source and the vibration fault score.
 
 - Code: [`display.py`](../ground_station/display.py), [`state.py`](../ground_station/state.py)
-- pytest: [test_display_renders_a_replay](../tests/python/test_ground_station.py#L127)
+- pytest: [test_display_renders_a_replay](../tests/python/test_ground_station.py#L135)
 
 <a id="llr-102"></a>**LLR-102** (HLR-001, HLR-002, HLR-003, HLR-004, HLR-009, HLR-019): The ground station shall raise alarms for: no telemetry for 1 s; distance to a conductor below 12 m (warning) and 10 m (critical), from the GPS position and the route geometry; stale Node A data; no GPS fix; IMU invalid; magnetometer disturbed; recorder off; packet loss and CAN errors in the last 5 s; and from Node A's safety state: RETURN_TO_HOME and LAND (critical), HOLD, vehicle lost the command link, battery low and critical, autopilot silent, avoiding, safety state unknown, vibration fault (critical, naming the fault) and vibration monitor inactive. Critical alarms shall be listed first.
 
 - Code: [`state.py`](../ground_station/state.py)
-- pytest: [test_encode_matches_reference](../tests/python/test_ground_station.py#L30), [test_geodetic_round_trip](../tests/python/test_ground_station.py#L34), [test_quiet_flight_has_no_alarms](../tests/python/test_ground_station.py#L42), [test_proximity_alarms_follow_distance_to_conductor](../tests/python/test_ground_station.py#L49), [test_link_loss_and_packet_loss](../tests/python/test_ground_station.py#L57), [test_status_flags_raise_alarms](../tests/python/test_ground_station.py#L69), [test_onboard_safety_state_raises_alarms](../tests/python/test_ground_station.py#L82), [test_vibration_fault_and_inactive_monitor_raise_alarms](../tests/python/test_ground_station.py#L100), [test_missing_safety_report_is_flagged](../tests/python/test_ground_station.py#L114), [test_can_errors_alarm_when_counters_grow](../tests/python/test_ground_station.py#L120), [test_display_renders_a_replay](../tests/python/test_ground_station.py#L127)
+- pytest: [test_encode_matches_reference](../tests/python/test_ground_station.py#L30), [test_geodetic_round_trip](../tests/python/test_ground_station.py#L34), [test_quiet_flight_has_no_alarms](../tests/python/test_ground_station.py#L42), [test_proximity_alarms_follow_distance_to_conductor](../tests/python/test_ground_station.py#L49), [test_link_loss_and_packet_loss](../tests/python/test_ground_station.py#L57), [test_status_flags_raise_alarms](../tests/python/test_ground_station.py#L69), [test_onboard_safety_state_raises_alarms](../tests/python/test_ground_station.py#L82), [test_vibration_fault_and_inactive_monitor_raise_alarms](../tests/python/test_ground_station.py#L100), [test_missing_safety_report_is_flagged](../tests/python/test_ground_station.py#L114), [test_can_errors_alarm_when_counters_grow](../tests/python/test_ground_station.py#L120), [test_display_renders_a_replay](../tests/python/test_ground_station.py#L135), [test_display_renders_a_replay_as_a_video](../tests/python/test_ground_station.py#L146)
 
 <a id="llr-103"></a>**LLR-103** (HLR-003): The ground station display shall send `PING` to Node B once a second while it receives live telemetry, unless disabled.
 
@@ -661,7 +661,7 @@ Robot test (start-up and console behaviour that all of them depend on).
 
 Test cases that no LLR names. They verify the test environment rather than the
 flight software: the plant model, the simulated autopilot, the ground station's
-command helper and the ML training pipeline. Under DO-178C these are tool
+command and video tools and the ML training pipeline. Under DO-178C these are tool
 qualification concerns, not requirements-based tests.
 
 | File | Tests |

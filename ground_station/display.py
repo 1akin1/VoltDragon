@@ -5,6 +5,11 @@ Usage:
     python -m ground_station.display --record flight.tlm   live, and keep the packets
     python -m ground_station.display --replay flight.tlm   play a recording back
     ... --snapshot view.png [--duration 60]                 save an image instead of a window
+    ... --replay flight.tlm --video clip.mp4 [--speed 2]    render a recording as a video
+    ... --follow 200                                        keep the map centred on the vehicle
+
+A recording comes from --record, or from the co-simulation without a network
+(python -m sim.mission --record flight.tlm).
 
 With live data the display also sends Node B a PING heartbeat once a second
 (--target, or --no-heartbeat to stay silent and let the vehicle see link loss).
@@ -37,6 +42,7 @@ from sim.plant.route import Route
 
 REFRESH_S = 0.2
 PLOT_WINDOW_S = 300.0
+VIDEO_DPI = 100                     # 1500 x 1000 pixels
 _RECORD = struct.Struct("<dH")      # receive time, datagram length; then the datagram
 
 SEVERITY_COLOURS = {"critical": "#c62828", "warning": "#ef6c00"}
@@ -44,7 +50,7 @@ SOURCE_COLOURS = {"magnetometer": "#1565c0", "gps": "#6a1b9a", "none": "#9e9e9e"
 
 
 class Display:
-    def __init__(self, route: Route, headless: bool) -> None:
+    def __init__(self, route: Route, headless: bool, follow_m: float | None = None) -> None:
         import matplotlib
 
         if headless:
@@ -53,6 +59,7 @@ class Display:
 
         self.plt = plt
         self.route = route
+        self.follow_m = follow_m
         self.state = GroundState(route)
         self.t0: float | None = None
 
@@ -68,6 +75,9 @@ class Display:
         self.ax_vib = self.fig.add_subplot(grid[3, 1], sharex=self.ax_dist)
         self.ax_status = self.fig.add_subplot(grid[4, 1])
         self._draw_static()
+        if follow_m is not None:
+            # Keep the square view by resizing the axes rather than overriding the limits.
+            self.ax_map.set_aspect("equal", adjustable="box")
 
     def _draw_static(self) -> None:
         ax = self.ax_map
@@ -143,6 +153,10 @@ class Display:
                 [last.east, last.east + 40.0 * math.sin(heading)],
                 [last.north, last.north + 40.0 * math.cos(heading)],
             )
+            if self.follow_m is not None:
+                half = self.follow_m / 2.0
+                self.ax_map.set_xlim(last.east - half, last.east + half)
+                self.ax_map.set_ylim(last.north - half, last.north + half)
 
         # Plots use mission time (Node B's uptime), which keeps its scale even when the
         # simulation runs slower than real time.
@@ -208,16 +222,49 @@ class Display:
         self.fig.savefig(path, dpi=110)
 
 
-def _replay(display: Display, path: Path) -> float:
+def _records(path: Path) -> list[tuple[float, bytes]]:
+    """The (receive time, datagram) pairs of a recording."""
     data = path.read_bytes()
+    records = []
     offset = 0
-    now = 0.0
     while offset + _RECORD.size <= len(data):
         now, length = _RECORD.unpack_from(data, offset)
         offset += _RECORD.size
-        display.feed(data[offset:offset + length], now)
+        records.append((now, data[offset:offset + length]))
         offset += length
+    return records
+
+
+def _replay(display: Display, path: Path) -> float:
+    now = 0.0
+    for now, datagram in _records(path):
+        display.feed(datagram, now)
     return now
+
+
+def _video(display: Display, path: Path, out: Path, fps: int, speed: float) -> int:
+    """Renders a recording as a video, frame by frame at the recording's own pace (sped
+    up by <speed>). An .mp4 needs ffmpeg; a .gif is written with Pillow."""
+    from matplotlib.animation import FFMpegWriter, PillowWriter
+
+    records = _records(path)
+    if not records:
+        raise SystemExit(f"error: {path} holds no telemetry")
+    writer = PillowWriter(fps=fps) if out.suffix.lower() == ".gif" else FFMpegWriter(fps=fps)
+    step = speed / fps
+    start, end = records[0][0], records[-1][0]
+    # Frame times from the start, not accumulated, so rounding cannot add or drop a frame.
+    frames = math.floor((end - start) / step + 1e-9) + 1
+    i = 0
+    with writer.saving(display.fig, str(out), dpi=VIDEO_DPI):
+        for n in range(frames):
+            now = start + n * step
+            while i < len(records) and records[i][0] <= now + 1e-9:
+                display.feed(records[i][1], records[i][0])
+                i += 1
+            display.render(now)
+            writer.grab_frame()
+    return frames
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -232,9 +279,28 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--target", default=DEFAULT_TARGET, help="Node B address for the heartbeat")
     parser.add_argument("--no-heartbeat", action="store_true",
                         help="do not send the 1 Hz PING heartbeat")
+    parser.add_argument("--video", type=Path,
+                        help="with --replay: render it as a video (.mp4 needs ffmpeg, or .gif)")
+    parser.add_argument("--fps", type=int, default=10, help="video frames per second")
+    parser.add_argument("--speed", type=float, default=1.0,
+                        help="video playback speed relative to mission time")
+    parser.add_argument("--title", help="caption shown above the display")
+    parser.add_argument("--follow", type=float, metavar="METRES",
+                        help="keep the map centred on the vehicle, this wide")
     args = parser.parse_args(argv)
 
-    display = Display(Route.load(args.route), headless=args.snapshot is not None)
+    headless = args.snapshot is not None or args.video is not None
+    display = Display(Route.load(args.route), headless=headless, follow_m=args.follow)
+    if args.title:
+        display.fig.suptitle(args.title, fontsize=14, fontweight="bold")
+        display.fig.tight_layout()
+
+    if args.video:
+        if not args.replay:
+            parser.error("--video needs --replay")
+        frames = _video(display, args.replay, args.video, args.fps, args.speed)
+        print(f"{frames} frames, {frames / args.fps:.1f} s; saved {args.video}")
+        return 0
 
     if args.replay:
         end = _replay(display, args.replay)

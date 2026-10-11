@@ -166,7 +166,10 @@ in Release) and 24 KB of RAM.
 fault, with the most frequent fault class; it clears after 8 nominal windows
 in a row (2.56 s). One misclassified window therefore never raises or clears
 the alarm, and a fault that every window shows raises it 0.64 s after the
-first window that shows it.
+first window that shows it. This happens in flight: in the `battery` scenario
+the abrupt start of the descent at critical battery scores one window at 100 %
+fault on a healthy airframe, and the alarm stays nominal (the `battery` clip
+in [demo.md](demo.md) shows the spike at about 25 s).
 
 **Advisory, not flight-critical.** The alarm is for the operator: Node A takes
 no flight action on it. AiTask is not part of the watchdog supervision; a

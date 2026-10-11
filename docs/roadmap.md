@@ -77,7 +77,9 @@ at 15.999 s, HLR-009: within 2 s), `tests/robot/node_a_ai.robot` and `system_tel
 - [x] Add ARINC 429 output to Node B (optional) ([arinc429.md](arinc429.md)): altitude, true
       heading and line distance at 20 Hz through an SPI transmitter, modelled in Renode with
       an independent bus monitor; verified by `tests/robot/system_arinc.robot`
-- [ ] Write the English README, architecture diagram and a short demo video
+- [x] Write the English README and the architecture diagrams ([architecture.md](architecture.md))
+- [ ] Record a short demo video: plan, narration and generated ground-station clips in
+      [demo.md](demo.md) (`tools/demo/make_clips.sh`); the screen recording and edit remain
 
 **Milestone:** The project is ready to show in a portfolio.
 
