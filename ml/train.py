@@ -246,7 +246,8 @@ def write_model_source(flatbuffer: bytes) -> None:
         " */\n"
         "#ifndef VIB_MODEL_DATA_H\n#define VIB_MODEL_DATA_H\n\n#include <stdint.h>\n\n"
         "#ifdef __cplusplus\nextern \"C\" {\n#endif\n\n"
-        "extern const uint8_t vib_model_data[];\n"
+        f"#define VIB_MODEL_DATA_LEN  ({len(flatbuffer)}U)\n\n"
+        "extern const uint8_t vib_model_data[VIB_MODEL_DATA_LEN];\n"
         "extern const uint32_t vib_model_data_len;\n\n"
         "#ifdef __cplusplus\n}\n#endif\n\n#endif /* VIB_MODEL_DATA_H */\n",
         encoding="utf-8", newline="\n",
@@ -260,9 +261,9 @@ def write_model_source(flatbuffer: bytes) -> None:
         " */\n"
         '#include "vib_model_data.h"\n\n'
         "/* TFLite Micro reads the flatbuffer in place: it must be 16-byte aligned. */\n"
-        "const uint8_t vib_model_data[] __attribute__((aligned(16))) = {\n"
+        "const uint8_t vib_model_data[VIB_MODEL_DATA_LEN] __attribute__((aligned(16))) = {\n"
         f"{c_array(flatbuffer)}\n}};\n\n"
-        f"const uint32_t vib_model_data_len = {len(flatbuffer)}U;\n",
+        "const uint32_t vib_model_data_len = VIB_MODEL_DATA_LEN;\n",
         encoding="utf-8", newline="\n",
     )
 

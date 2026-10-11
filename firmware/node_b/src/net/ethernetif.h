@@ -10,7 +10,7 @@
 #include "lwip/err.h"
 #include "lwip/netif.h"
 
-/** netif_add() init callback. netif->state must point to the 6-byte hardware address. */
+/** netif_add() init callback; the interface's hardware address is fixed in ethernetif.c. */
 err_t ethernetif_init(struct netif *netif);
 
 /** Passes every received frame to lwIP. Call from the main loop. */

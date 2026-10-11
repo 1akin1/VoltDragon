@@ -8,6 +8,7 @@
 
 #include "can.h"
 #include "log.h"
+#include "systick.h"
 
 #define NODE_A_FILTER_BANK  (0U)
 #define NODE_A_MESSAGES     (9U)
@@ -237,7 +238,7 @@ void can_rx_poll(uint32_t now_ms)
     }
 
     can_poll();
-    if ((int32_t)(now_ms - s_rx.next_b_status_ms) >= 0)
+    if (systick_reached(now_ms, s_rx.next_b_status_ms))
     {
         s_rx.next_b_status_ms = now_ms + CAN_RX_B_STATUS_PERIOD_MS;
         send_b_status(now_ms);

@@ -12,6 +12,9 @@
 
 #define ETHERNET_MTU (1500U)
 
+/* Locally administered unicast address 02:00:00:56:44:02. */
+static const uint8_t s_hwaddr[ETH_HWADDR_LEN] = { 0x02U, 0x00U, 0x00U, 0x56U, 0x44U, 0x02U };
+
 static uint32_t s_rx_dropped;
 
 static err_t link_output(struct netif *netif, struct pbuf *p)
@@ -23,7 +26,7 @@ static err_t link_output(struct netif *netif, struct pbuf *p)
         return ERR_BUF;
     }
     uint8_t *buffer = eth_tx_acquire();
-    if (buffer == 0)
+    if (buffer == NULL)
     {
         /* All transmit descriptors are still owned by the DMA. */
         return ERR_MEM;
@@ -35,42 +38,41 @@ static err_t link_output(struct netif *netif, struct pbuf *p)
 
 err_t ethernetif_init(struct netif *netif)
 {
-    const uint8_t *hwaddr = (const uint8_t *)netif->state;
-
     netif->name[0] = 'e';
     netif->name[1] = '0';
     netif->output = etharp_output;
     netif->linkoutput = link_output;
     netif->mtu = ETHERNET_MTU;
     netif->hwaddr_len = ETH_HWADDR_LEN;
-    (void)memcpy(netif->hwaddr, hwaddr, ETH_HWADDR_LEN);
+    (void)memcpy(netif->hwaddr, s_hwaddr, ETH_HWADDR_LEN);
     netif->flags = NETIF_FLAG_BROADCAST | NETIF_FLAG_ETHARP | NETIF_FLAG_ETHERNET;
 
-    return eth_init(hwaddr) ? ERR_OK : ERR_IF;
+    return eth_init(s_hwaddr) ? ERR_OK : ERR_IF;
 }
 
 void ethernetif_input(struct netif *netif)
 {
-    const uint8_t *frame = 0;
-    size_t length;
+    const uint8_t *frame = NULL;
+    size_t length = eth_rx_peek(&frame);
 
-    while ((length = eth_rx_peek(&frame)) != 0U)
+    while (length != 0U)
     {
         struct pbuf *p = pbuf_alloc(PBUF_RAW, (u16_t)length, PBUF_POOL);
 
-        if (p == 0)
+        if (p == NULL)
         {
             s_rx_dropped++;
         }
         else
         {
             (void)pbuf_take(p, frame, (u16_t)length);
-            if (netif->input(p, netif) != ERR_OK)
+            if (netif->input(p, netif) != (err_t)ERR_OK)
             {
                 (void)pbuf_free(p);
             }
         }
         eth_rx_release();
+        length = eth_rx_peek(&frame);
     }
 }
 

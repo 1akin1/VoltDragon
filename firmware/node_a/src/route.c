@@ -8,9 +8,9 @@
 #include <stdbool.h>
 
 /* sim/plant/routes/line_a.json */
-#define ORIGIN_LAT_E7       (399000000L)
-#define ORIGIN_LON_E7       (328000000L)
-#define ORIGIN_ALT_CM       (90000L)
+#define ORIGIN_LAT_E7       (399000000)
+#define ORIGIN_LON_E7       (328000000)
+#define ORIGIN_ALT_CM       (90000)
 #define CONDUCTOR_HEIGHT_M  (25.0f)
 #define PHASE_SPACING_M     (6.0f)
 #define PYLON_COUNT         (6U)
@@ -53,11 +53,15 @@ static float segment_distance(point_t p, point_t a, point_t b)
 
 float route_distance_to_conductors_m(int32_t lat_e7, int32_t lon_e7, int32_t alt_msl_cm)
 {
-    /* Local East-North-Up from the origin, flat-Earth (centimetre accuracy over a few km). */
+    /* Local East-North-Up from the origin, flat-Earth (centimetre accuracy over a few km).
+     * The offsets are taken in integers first, so no precision is lost to the float. */
+    const int32_t east_e7 = lon_e7 - ORIGIN_LON_E7;
+    const int32_t north_e7 = lat_e7 - ORIGIN_LAT_E7;
+    const int32_t up_cm = alt_msl_cm - ORIGIN_ALT_CM;
     const point_t p = {
-        (float)(lon_e7 - ORIGIN_LON_E7) * RAD_PER_E7_DEG * EARTH_RADIUS_M * COS_ORIGIN_LAT,
-        (float)(lat_e7 - ORIGIN_LAT_E7) * RAD_PER_E7_DEG * EARTH_RADIUS_M,
-        (float)(alt_msl_cm - ORIGIN_ALT_CM) / 100.0f,
+        (float)east_e7 * RAD_PER_E7_DEG * EARTH_RADIUS_M * COS_ORIGIN_LAT,
+        (float)north_e7 * RAD_PER_E7_DEG * EARTH_RADIUS_M,
+        (float)up_cm / 100.0f,
     };
     float best = INFINITY;
 

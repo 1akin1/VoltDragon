@@ -13,7 +13,9 @@
 extern "C" {
 #endif
 
-extern const uint8_t vib_model_data[];
+#define VIB_MODEL_DATA_LEN  (5808U)
+
+extern const uint8_t vib_model_data[VIB_MODEL_DATA_LEN];
 extern const uint32_t vib_model_data_len;
 
 #ifdef __cplusplus

@@ -93,9 +93,10 @@ static bool mdio_wait(void)
 
 static uint32_t mdio_command(uint32_t reg, bool write)
 {
-    return (PHY_ADDRESS << ETH_MACMIIAR_PA_SHIFT) | (reg << ETH_MACMIIAR_MR_SHIFT) |
-           (MDIO_CLOCK_RANGE << ETH_MACMIIAR_CR_SHIFT) | (write ? ETH_MACMIIAR_MW : 0UL) |
-           ETH_MACMIIAR_MB;
+    const uint32_t write_bit = write ? ETH_MACMIIAR_MW : 0UL;
+
+    return ((uint32_t)PHY_ADDRESS << ETH_MACMIIAR_PA_SHIFT) | (reg << ETH_MACMIIAR_MR_SHIFT) |
+           ((uint32_t)MDIO_CLOCK_RANGE << ETH_MACMIIAR_CR_SHIFT) | write_bit | ETH_MACMIIAR_MB;
 }
 
 static bool phy_read(uint32_t reg, uint32_t *value)

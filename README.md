@@ -51,7 +51,8 @@ flowchart TB
 | `tools/gdb` | GDB helpers (fault-frame decoding) |
 | `tools/tflm` | Script that vendors the TensorFlow Lite Micro subset |
 | `tools/trace` | Generator and CI check for the traceability matrix |
-| `docs/` | [Roadmap](docs/roadmap.md), [HLR](docs/requirements/HLR.md), [LLR](docs/requirements/LLR.md), [traceability matrix](docs/traceability.md), [debugging](docs/debugging.md), [command interface](docs/command-interface.md), [CAN messages](docs/can-messages.md), [telemetry](docs/telemetry.md), [simulation](docs/simulation.md), [RTOS](docs/rtos.md), [autopilot link and safety logic](docs/autopilot-link.md), [Edge AI](docs/edge-ai.md), [vibration model report](docs/vibration-model-report.md), [MISRA deviations](docs/misra-deviations.md) |
+| `tools/misra` | MISRA C:2012 check (cppcheck) and report generator |
+| `docs/` | [Roadmap](docs/roadmap.md), [HLR](docs/requirements/HLR.md), [LLR](docs/requirements/LLR.md), [traceability matrix](docs/traceability.md), [debugging](docs/debugging.md), [command interface](docs/command-interface.md), [CAN messages](docs/can-messages.md), [telemetry](docs/telemetry.md), [simulation](docs/simulation.md), [RTOS](docs/rtos.md), [autopilot link and safety logic](docs/autopilot-link.md), [Edge AI](docs/edge-ai.md), [vibration model report](docs/vibration-model-report.md), [MISRA compliance plan](docs/misra-deviations.md), [MISRA report](docs/misra-report.md) |
 
 ## Building
 
@@ -80,6 +81,9 @@ sudo renode renode/ground_link.resc
 cmake --preset host-tests
 cmake --build --preset host-tests
 ctest --preset host-tests
+
+# MISRA C:2012 check with cppcheck 2.10 (after cmake --preset debug; see docs/misra-deviations.md)
+python3 tools/misra/misra.py
 
 # Renode system tests (needs: pip install -r /opt/renode/tests/requirements.txt)
 renode-test -r build/robot tests/robot/*.robot
@@ -168,12 +172,15 @@ network on TensorFlow Lite Micro ([Edge AI](docs/edge-ai.md)).
 
 Phase 6 in progress: process and documentation.
 
-- The [traceability matrix](docs/traceability.md) links the HLRs to 91 LLRs, the
+- The [traceability matrix](docs/traceability.md) links the HLRs to 92 LLRs, the
   code that implements them and 185 test cases. It is generated from the
   requirements tables by `python tools/trace/trace.py`, which fails CI if a named
-  file or test no longer exists or the matrix is out of date. Two HLRs have no LLR
-  yet: HLR-015 (ARINC 429, optional) and HLR-020 (MISRA compliance, verified by
-  analysis); both are the next Phase 6 items.
+  file or test no longer exists or the matrix is out of date. Only the optional
+  HLR-015 (ARINC 429) has no LLR yet.
+- The C flight software has no open finding from cppcheck's MISRA C:2012 addon
+  ([report](docs/misra-report.md)). The [compliance plan](docs/misra-deviations.md)
+  disapplies two advisory rules and records six deviations and five false positives
+  of the tool; every other finding was fixed in the code. CI fails on any new finding.
 
 See the [roadmap](docs/roadmap.md).
 

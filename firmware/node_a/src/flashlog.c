@@ -178,7 +178,8 @@ static bool complete_operation(void)
 
         /* Verify-after-write. On a mismatch the slot is spent and the record is retried in the next one. */
         if ((mt25q_read(slot_addr(s_log.next_slot), (uint8_t *)&readback, sizeof(readback)) ==
-             MT25Q_OK) && (memcmp(&readback, rec, sizeof(readback)) == 0))
+             MT25Q_OK) &&
+            (memcmp((const uint8_t *)&readback, (const uint8_t *)rec, sizeof(readback)) == 0))
         {
             s_log.queue_head = (s_log.queue_head + 1U) % QUEUE_LEN;
             s_log.queue_count--;
@@ -335,7 +336,7 @@ void flashlog_report(void)
 {
     lock_t *lock = enter();
     const flashlog_state_t snapshot = s_log;
-    s_log.last_error = 0;
+    s_log.last_error = NULL;
     s_log.written_since_report = 0U;
     leave(lock);
 
@@ -345,7 +346,7 @@ void flashlog_report(void)
     }
     LOG_INFO("flashlog: %lu rec/s, total %lu, dropped %lu, errors %lu",
              snapshot.written_since_report, snapshot.next_slot, snapshot.dropped, snapshot.errors);
-    if (snapshot.last_error != 0)
+    if (snapshot.last_error != NULL)
     {
         LOG_WARN("flashlog: last error: %s", snapshot.last_error);
     }
@@ -372,7 +373,7 @@ void flashlog_use_priority_inheritance(bool inherit)
 void flashlog_hold_lock(uint32_t ms, void (*while_held)(void))
 {
     lock_t *lock = enter();
-    if (while_held != 0)
+    if (while_held != NULL)
     {
         while_held();
     }
@@ -394,14 +395,14 @@ static void print_record(const record_t *rec)
     if ((rec->type == (uint8_t)FLASHLOG_TYPE_BOOT) && (rec->length == sizeof(flashlog_boot_t)))
     {
         flashlog_boot_t boot;
-        (void)memcpy(&boot, rec->payload, sizeof(boot));
+        (void)memcpy((uint8_t *)&boot, rec->payload, sizeof(boot));
         LOG_INFO("log #%lu %lu.%03lu BOOT cause %s, count %lu", rec->seq, seconds, millis,
                  reset_info_cause_name((reset_cause_t)boot.reset_cause), boot.reset_count);
     }
     else if ((rec->type == (uint8_t)FLASHLOG_TYPE_IMU) && (rec->length == sizeof(lsm9ds1_sample_t)))
     {
         lsm9ds1_sample_t s;
-        (void)memcpy(&s, rec->payload, sizeof(s));
+        (void)memcpy((uint8_t *)&s, rec->payload, sizeof(s));
         LOG_INFO("log #%lu %lu.%03lu IMU acc %ld %ld %ld mg, gyro %ld %ld %ld mdps, mag %ld %ld %ld mG",
                  rec->seq, seconds, millis, s.accel_mg[0], s.accel_mg[1], s.accel_mg[2],
                  s.gyro_mdps[0], s.gyro_mdps[1], s.gyro_mdps[2],
@@ -411,7 +412,7 @@ static void print_record(const record_t *rec)
              (rec->length == sizeof(flashlog_vib_alarm_t)))
     {
         flashlog_vib_alarm_t a;
-        (void)memcpy(&a, rec->payload, sizeof(a));
+        (void)memcpy((uint8_t *)&a, rec->payload, sizeof(a));
         LOG_INFO("log #%lu %lu.%03lu VIBRATION alarm %s (%u %%) after %lu windows", rec->seq,
                  seconds, millis, vib_class_name((vib_class_t)a.alarm),
                  (unsigned int)a.confidence_pct, a.windows);

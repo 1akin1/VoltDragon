@@ -157,6 +157,10 @@ static void feed_health_monitor(void)
     {
         (void)xTaskNotifyGive(s_ai_task.handle);
     }
+    else
+    {
+        /* The window is not complete yet. */
+    }
 }
 
 static void imu_task(void *arg)
@@ -256,7 +260,7 @@ static void priority_inversion_demo(bool inheritance)
 
 static void finish_demo(uint32_t now_ms)
 {
-    if (!s_demo_running || ((int32_t)(now_ms - s_demo_report_ms) < 0))
+    if (!s_demo_running || !systick_reached(now_ms, s_demo_report_ms))
     {
         return;
     }

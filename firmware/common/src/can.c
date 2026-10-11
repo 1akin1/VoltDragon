@@ -67,10 +67,10 @@ bool can_init(void)
 
     /* Transmit in request order (TXFP); recover from bus-off automatically (ABOM). */
     BOARD_CAN->MCR = CAN_MCR_INRQ | CAN_MCR_TXFP | CAN_MCR_ABOM;
-    BOARD_CAN->BTR = ((BOARD_CAN_PRESCALER - 1UL) << BTR_BRP_SHIFT) |
-                     ((BOARD_CAN_BS1_TQ - 1UL) << BTR_TS1_SHIFT) |
-                     ((BOARD_CAN_BS2_TQ - 1UL) << BTR_TS2_SHIFT) |
-                     (0UL << BTR_SJW_SHIFT);
+    /* SJW = 1 tq: the field holds 0. */
+    BOARD_CAN->BTR = (((uint32_t)BOARD_CAN_PRESCALER - 1U) << BTR_BRP_SHIFT) |
+                     (((uint32_t)BOARD_CAN_BS1_TQ - 1U) << BTR_TS1_SHIFT) |
+                     (((uint32_t)BOARD_CAN_BS2_TQ - 1U) << BTR_TS2_SHIFT);
 
     /* No filter active yet: nothing is received until can_add_filter(). */
     BOARD_CAN->FMR |= CAN_FMR_FINIT;
@@ -98,7 +98,7 @@ bool can_add_filter(uint32_t bank, uint16_t id, uint16_t mask)
     BOARD_CAN->FFA1R &= ~bit;           /* to FIFO 0 */
     /* Match standard data frames only: IDE and RTR must be 0. */
     BOARD_CAN->FILTER[bank].FR1 = (uint32_t)id << CAN_ID_STD_SHIFT;
-    BOARD_CAN->FILTER[bank].FR2 = ((uint32_t)(mask & CAN_STD_ID_MAX) << CAN_ID_STD_SHIFT) |
+    BOARD_CAN->FILTER[bank].FR2 = (((uint32_t)mask & CAN_STD_ID_MAX) << CAN_ID_STD_SHIFT) |
                                   CAN_ID_IDE | CAN_ID_RTR;
     BOARD_CAN->FA1R |= bit;
     BOARD_CAN->FMR &= ~CAN_FMR_FINIT;
@@ -140,7 +140,7 @@ void can_poll(void)
         }
 
         const can_frame_t *frame = &s_can.queue[s_can.head];
-        uint8_t data[CAN_DATA_MAX] = { 0U };
+        uint8_t data[CAN_DATA_MAX] = { 0 };
         (void)memcpy(data, frame->data, frame->dlc);
 
         can_tx_mailbox_t *mb = &BOARD_CAN->TX[mailbox];

@@ -33,7 +33,7 @@ static cmd_error_t execute(const cmd_dispatcher_t *dispatcher, const cmd_request
 {
     const cmd_entry_t *entry = find_entry(dispatcher, req->verb);
 
-    if (entry == 0)
+    if (entry == NULL)
     {
         return CMD_ERR_UNKNOWN;
     }

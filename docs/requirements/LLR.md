@@ -182,3 +182,9 @@ Design: [simulation.md](../simulation.md) describes the scenario these are verif
 | LLR-144 | Node A shall log every change of the vibration alarm and record it in the flight-data recorder. | HLR-009, HLR-018 | `health.c`, `flashlog.c`, `vib_alarm.c` | Unit: `class_names`; Robot: `Should Record Alarm Changes In The Flight Recorder` |
 | LLR-145 | Node A shall send its vibration monitor state in the CAN HEALTH message at 50 Hz (alarm, last class and its probability, fault score, active flag, window count) and set the vibration flag in SAFETY while the alarm is raised. The monitor shall be reported inactive if no window was classified in the last second; it shall not take part in the watchdog supervision. | HLR-009 | `can_tx.c`, `health.c` | Unit: `health_message_round_trips`; Robot: `Should Carry The Vibration Alarm To The Ground Station`; integration: `test_alarm_stays_raised_and_is_recorded` |
 | LLR-146 | Node B shall log each change of Node A's vibration alarm when the HEALTH message carrying it arrives. | HLR-009 | `can_rx.c` | Integration: `test_fault_reaches_the_ground_station_within_2_s` |
+
+## Coding standard
+
+| ID | Requirement | Parent | Code | Test |
+|----|-------------|--------|------|------|
+| LLR-150 | The C sources of both nodes shall have no open finding from cppcheck's MISRA C:2012 addon: each finding shall be covered by a disapplied advisory rule, a documented deviation or a documented false positive of the tool, as defined in [misra-deviations.md](../misra-deviations.md). | HLR-020 | All C files in firmware/ | Analysis: tools/misra/misra.py --check in CI (docs/misra-report.md) |

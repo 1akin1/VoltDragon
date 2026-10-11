@@ -11,6 +11,7 @@
 #include "log.h"
 #include "reset_info.h"
 #include "semphr.h"
+#include "systick.h"
 #include "task.h"
 
 void xPortSysTickHandler(void);

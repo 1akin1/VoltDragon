@@ -14,6 +14,7 @@
 #include "nav.h"
 #include "reset_info.h"
 #include "safety.h"
+#include "systick.h"
 
 /* Outside Node B's acceptance range 0x100..0x10F. */
 #define FOREIGN_ID          (0x300U)
@@ -23,10 +24,10 @@
 #define CM_PER_DM           (10L)
 
 /* The HEALTH message carries vib_class_t values as CANMSG_VIB_* classes. */
-_Static_assert((VIB_CLASS_NOMINAL == CANMSG_VIB_NOMINAL) &&
-               (VIB_CLASS_IMBALANCE == CANMSG_VIB_IMBALANCE) &&
-               (VIB_CLASS_BEARING == CANMSG_VIB_BEARING) &&
-               (VIB_CLASS_COUNT == CANMSG_VIB_CLASSES), "vibration classes");
+_Static_assert(((uint32_t)VIB_CLASS_NOMINAL == CANMSG_VIB_NOMINAL) &&
+               ((uint32_t)VIB_CLASS_IMBALANCE == CANMSG_VIB_IMBALANCE) &&
+               ((uint32_t)VIB_CLASS_BEARING == CANMSG_VIB_BEARING) &&
+               ((uint32_t)VIB_CLASS_COUNT == CANMSG_VIB_CLASSES), "vibration classes");
 
 typedef enum
 {
@@ -40,7 +41,7 @@ typedef enum
     MSG_SAFETY,
     MSG_HEALTH,
     MSG_COUNT,
-    MSG_IDLE = MSG_COUNT
+    MSG_IDLE                    /* a free slot in the schedule */
 } message_t;
 
 static const uint16_t s_ids[MSG_COUNT] = {
@@ -292,8 +293,7 @@ void can_tx_poll(uint32_t now_ms)
     receive(now_ms);
     can_poll();
 
-    /* Signed difference handles counter wrap-around. */
-    if ((int32_t)(now_ms - s_tx.next_due_ms) < 0)
+    if (!systick_reached(now_ms, s_tx.next_due_ms))
     {
         return;
     }

@@ -182,7 +182,7 @@ static void process_sample(const lsm9ds1_sample_t *s, uint32_t now_ms)
         /* Horizontal magnetic east and north in body axes; heading of the body x axis. */
         const vec3f_t east = cross(down, mag);
         const vec3f_t north = cross(east, down);
-        const float heading = atan2f(east.x, north.x) * DEG_PER_RAD + NAV_DECLINATION_DEG;
+        const float heading = (atan2f(east.x, north.x) * DEG_PER_RAD) + NAV_DECLINATION_DEG;
         s_nav.state.heading_cdeg = to_cdeg(heading);
         s_nav.state.source = NAV_HEADING_MAG;
     }
@@ -204,9 +204,10 @@ void nav_init(void)
     s_nav.state.mag_ok = true;
     s_published = s_nav.state;
     lock_init(&s_lock);
+    const float tolerance_pct = NAV_FIELD_TOLERANCE * 100.0f;
     LOG_INFO("nav: expecting %u mG, dip %u deg; disturbed beyond %u%% or %u deg",
              (unsigned int)NAV_FIELD_MGAUSS, (unsigned int)NAV_DIP_DEG,
-             (unsigned int)(NAV_FIELD_TOLERANCE * 100.0f), (unsigned int)NAV_DIP_TOLERANCE_DEG);
+             (unsigned int)tolerance_pct, (unsigned int)NAV_DIP_TOLERANCE_DEG);
 }
 
 void nav_poll(uint32_t now_ms)

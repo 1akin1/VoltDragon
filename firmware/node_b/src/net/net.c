@@ -4,9 +4,12 @@
  */
 #include "net.h"
 
+#include <stddef.h>
+
 #include "eth.h"
 #include "ethernetif.h"
 #include "log.h"
+#include "systick.h"
 #include "lwip/init.h"
 #include "lwip/netif.h"
 #include "lwip/pbuf.h"
@@ -16,8 +19,6 @@
 
 #define LINK_POLL_MS        (100UL)
 #define COMMAND_REPLY_MAX   (128U)
-
-static const uint8_t s_hwaddr[ETH_HWADDR_LEN] = { 0x02U, 0x00U, 0x00U, 0x56U, 0x44U, 0x02U };
 
 typedef struct
 {
@@ -50,7 +51,7 @@ static void on_command(void *arg, struct udp_pcb *pcb, struct pbuf *p, const ip_
         return;
     }
     struct pbuf *out = pbuf_alloc(PBUF_TRANSPORT, (u16_t)reply_len, PBUF_RAM);
-    if (out != 0)
+    if (out != NULL)
     {
         (void)pbuf_take(out, reply, (u16_t)reply_len);
         (void)udp_sendto(pcb, out, addr, port);
@@ -71,8 +72,8 @@ bool net_init(net_command_handler_t command_handler)
     IP4_ADDR(&address, 192, 168, 10, 2);
     IP4_ADDR(&netmask, 255, 255, 255, 0);
     IP4_ADDR(&gateway, 192, 168, 10, 1);
-    if (netif_add(&s_net.netif, &address, &netmask, &gateway, (void *)s_hwaddr, ethernetif_init,
-                  ethernet_input) == 0)
+    if (netif_add(&s_net.netif, &address, &netmask, &gateway, NULL, ethernetif_init,
+                  ethernet_input) == NULL)
     {
         LOG_ERROR("net: Ethernet did not start (no PHY?), running without network");
         return false;
@@ -82,8 +83,8 @@ bool net_init(net_command_handler_t command_handler)
 
     s_net.telemetry_pcb = udp_new();
     s_net.command_pcb = udp_new();
-    if ((s_net.telemetry_pcb == 0) || (s_net.command_pcb == 0) ||
-        (udp_bind(s_net.command_pcb, IP_ADDR_ANY, NET_COMMAND_PORT) != ERR_OK))
+    if ((s_net.telemetry_pcb == NULL) || (s_net.command_pcb == NULL) ||
+        (udp_bind(s_net.command_pcb, IP_ADDR_ANY, NET_COMMAND_PORT) != (err_t)ERR_OK))
     {
         LOG_ERROR("net: could not open UDP sockets");
         return false;
@@ -125,7 +126,7 @@ void net_poll(uint32_t now_ms)
     }
 
     ethernetif_input(&s_net.netif);
-    if ((int32_t)(now_ms - s_net.next_link_poll_ms) >= 0)
+    if (systick_reached(now_ms, s_net.next_link_poll_ms))
     {
         s_net.next_link_poll_ms = now_ms + LINK_POLL_MS;
         poll_link();
@@ -146,7 +147,7 @@ bool net_send_telemetry(const uint8_t *data, size_t len)
     }
 
     struct pbuf *p = pbuf_alloc(PBUF_TRANSPORT, (u16_t)len, PBUF_RAM);
-    if (p == 0)
+    if (p == NULL)
     {
         return false;
     }
@@ -157,7 +158,7 @@ bool net_send_telemetry(const uint8_t *data, size_t len)
                                      ~ip4_addr_get_u32(netif_ip4_netmask(&s_net.netif)));
     const err_t err = udp_sendto(s_net.telemetry_pcb, p, &broadcast, NET_TELEMETRY_PORT);
     (void)pbuf_free(p);
-    return err == ERR_OK;
+    return err == (err_t)ERR_OK;
 }
 
 void net_report(void)

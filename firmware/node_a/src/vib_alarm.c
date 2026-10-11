@@ -15,7 +15,7 @@ void vib_alarm_init(vib_alarm_t *a)
 /** The most frequent fault class in the history; ties go to the latest. */
 static vib_class_t dominant_fault(const vib_alarm_t *a)
 {
-    uint32_t counts[VIB_CLASS_COUNT] = { 0U };
+    uint32_t counts[VIB_CLASS_COUNT] = { 0 };
     vib_class_t best = VIB_CLASS_NOMINAL;
     uint32_t best_count = 0U;
 

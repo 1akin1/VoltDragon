@@ -14,8 +14,8 @@ not exist. CI runs `python tools/trace/trace.py --check` to keep it current.
 | Item | Count |
 |------|------:|
 | High-level requirements | 20 |
-| HLRs refined by at least one LLR | 18 |
-| Low-level requirements | 91 |
+| HLRs refined by at least one LLR | 19 |
+| Low-level requirements | 92 |
 | Derived LLRs (no parent HLR) | 12 |
 | LLRs verified by at least one named test | 82 |
 | Test cases indexed (Robot / unit / pytest) | 224 (70 Robot, 78 Unit, 76 pytest) |
@@ -44,12 +44,11 @@ not exist. CI runs `python tools/trace/trace.py --check` to keep it current.
 | HLR-017 | Each node shall keep a reset counter and the last fault cause across resets, and shall report them in telemetry at start-up. | T | [LLR-003](#llr-003), [LLR-012](#llr-012), [LLR-013](#llr-013), [LLR-014](#llr-014), [LLR-020](#llr-020), [LLR-021](#llr-021), [LLR-023](#llr-023), [LLR-083](#llr-083), [LLR-115](#llr-115) | 12 Robot |
 | HLR-018 | Node A shall record flight data, mode changes and alarms to SPI flash at 10 Hz or faster. | T | [LLR-051](#llr-051), [LLR-052](#llr-052), [LLR-053](#llr-053), [LLR-054](#llr-054), [LLR-055](#llr-055), [LLR-056](#llr-056), [LLR-057](#llr-057), [LLR-058](#llr-058), [LLR-144](#llr-144) | 8 Robot, 1 Unit |
 | HLR-019 | The ground station shall show the UAV position on a map, live telemetry plots and active alarms. | I, T | [LLR-100](#llr-100), [LLR-101](#llr-101), [LLR-102](#llr-102) | 17 pytest |
-| HLR-020 | All flight software shall comply with the project's MISRA C:2012 subset, and every deviation shall be documented. | A | **none** | - |
+| HLR-020 | All flight software shall comply with the project's MISRA C:2012 subset, and every deviation shall be documented. | A | [LLR-150](#llr-150) | - |
 
 HLRs without an LLR:
 
 - **HLR-015** (Communication): Node B may output selected parameters (altitude, heading, line distance) as ARINC 429 words. *(Optional)*
-- **HLR-020** (Robustness and recording): All flight software shall comply with the project's MISRA C:2012 subset, and every deviation shall be documented.
 
 ## LLR to code and tests
 
@@ -581,6 +580,14 @@ HLRs without an LLR:
 - Code: [`can_rx.c`](../firmware/node_b/src/can_rx.c)
 - pytest: [test_fault_reaches_the_ground_station_within_2_s](../tests/integration/test_vibration.py#L45)
 
+
+### Coding standard
+
+<a id="llr-150"></a>**LLR-150** (HLR-020): The C sources of both nodes shall have no open finding from cppcheck's MISRA C:2012 addon: each finding shall be covered by a disapplied advisory rule, a documented deviation or a documented false positive of the tool, as defined in [misra-deviations.md](../misra-deviations.md).
+
+- Code: -
+- Other: Analysis: tools/misra/misra.py --check in CI (docs/misra-report.md)
+
 ## Derived requirements
 
 These LLRs have no parent HLR: they come from design decisions (pin-out, start-up,
@@ -602,8 +609,8 @@ system safety assessment; none of them affects a safety function here.
 
 ## LLRs without a named test
 
-These LLRs are verified by inspection, by the build, or by every Robot test
-(start-up and console behaviour that all of them depend on).
+These LLRs are verified by inspection, by analysis, by the build, or by every
+Robot test (start-up and console behaviour that all of them depend on).
 
 - [LLR-001](#llr-001): Inspection
 - [LLR-002](#llr-002): All Robot tests (every test boots the firmware)
@@ -614,6 +621,7 @@ These LLRs are verified by inspection, by the build, or by every Robot test
 - [LLR-057](#llr-057): Inspection
 - [LLR-111](#llr-111): Build (enforced at link time)
 - [LLR-112](#llr-112): Inspection
+- [LLR-150](#llr-150): Analysis: tools/misra/misra.py --check in CI (docs/misra-report.md)
 
 ## Tests not traced to an LLR
 

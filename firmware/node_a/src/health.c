@@ -62,7 +62,7 @@ bool health_init(void)
     }
     s_status.ready = true;
     LOG_INFO("ai: vibration classifier ready, tensor arena %lu bytes; a window every %lu ms",
-             vib_model_arena_used(), (uint32_t)(VIB_HOP * 10U));
+             vib_model_arena_used(), (uint32_t)VIB_HOP * 10U);
     return true;
 }
 
@@ -151,9 +151,11 @@ void health_classify(uint32_t now_ms)
             best = (vib_class_t)c;
         }
     }
-    const uint8_t confidence = (uint8_t)((vib_model_probability(output[best]) * PERCENT) + 0.5f);
+    const float confidence_pct = (vib_model_probability(output[best]) * PERCENT) + 0.5f;
+    const uint8_t confidence = (uint8_t)confidence_pct;
     const float nominal = vib_model_probability(output[VIB_CLASS_NOMINAL]);
-    const uint8_t fault_score = (uint8_t)(((1.0f - nominal) * PERCENT) + 0.5f);
+    const float fault_score_pct = ((1.0f - nominal) * PERCENT) + 0.5f;
+    const uint8_t fault_score = (uint8_t)fault_score_pct;
 
     /* The debounce state is AiTask's own; only the published fields need the lock. */
     const vib_class_t previous = s_status.alarm;

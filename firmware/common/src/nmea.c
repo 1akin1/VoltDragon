@@ -34,15 +34,15 @@ static bool hex_digit(char c, uint8_t *value)
 {
     if ((c >= '0') && (c <= '9'))
     {
-        *value = (uint8_t)(c - '0');
+        *value = (uint8_t)((uint32_t)c - (uint32_t)'0');
     }
     else if ((c >= 'A') && (c <= 'F'))
     {
-        *value = (uint8_t)((c - 'A') + 10);
+        *value = (uint8_t)(((uint32_t)c - (uint32_t)'A') + 10U);
     }
     else if ((c >= 'a') && (c <= 'f'))
     {
-        *value = (uint8_t)((c - 'a') + 10);
+        *value = (uint8_t)(((uint32_t)c - (uint32_t)'a') + 10U);
     }
     else
     {
@@ -131,11 +131,11 @@ static bool parse_fixed(field_t f, uint32_t decimals, int64_t *out)
                 {
                     return false;
                 }
-                value = (value * 10) + (c - '0');
+                value = (value * 10) + ((int64_t)c - (int64_t)'0');
             }
             else if (frac_digits < decimals)
             {
-                value = (value * 10) + (c - '0');
+                value = (value * 10) + ((int64_t)c - (int64_t)'0');
                 frac_digits++;
             }
             else
@@ -168,7 +168,9 @@ static bool parse_time(field_t f, uint32_t *ms)
     {
         return false;
     }
-    const uint32_t whole = (uint32_t)(hhmmss_e3 / 1000);
+    const int64_t whole_s = hhmmss_e3 / 1000;
+    const int64_t millis = hhmmss_e3 % 1000;
+    const uint32_t whole = (uint32_t)whole_s;
     const uint32_t hours = whole / 10000U;
     const uint32_t minutes = (whole / 100U) % 100U;
     const uint32_t seconds = whole % 100U;
@@ -177,7 +179,7 @@ static bool parse_time(field_t f, uint32_t *ms)
         return false;
     }
     *ms = (hours * MS_PER_HOUR) + (minutes * MS_PER_MINUTE) + (seconds * MS_PER_SECOND) +
-          (uint32_t)(hhmmss_e3 % 1000);
+          (uint32_t)millis;
     return true;
 }
 
@@ -209,6 +211,10 @@ static bool parse_coordinate(field_t value, field_t hemisphere, char positive, c
     {
         return false;
     }
+    else
+    {
+        /* Positive hemisphere: keep the sign. */
+    }
     *out = (int32_t)result;
     return true;
 }
@@ -216,7 +222,7 @@ static bool parse_coordinate(field_t value, field_t hemisphere, char positive, c
 static bool type_is(field_t f, const char *type)
 {
     /* Accept any talker ID (GP, GN, GL, ...): compare the last three letters. */
-    return (f.len == 5U) && (memcmp(&f.text[2], type, 3U) == 0);
+    return (f.len == 5U) && (strncmp(&f.text[2], type, 3U) == 0);
 }
 
 static nmea_result_t parse_gga(const field_t *fields, uint32_t count, nmea_fix_t *fix)
@@ -266,11 +272,13 @@ static nmea_result_t parse_rmc(const field_t *fields, uint32_t count, nmea_fix_t
         {
             return NMEA_ERR_FIELD;
         }
-        next.speed_cmps = (uint32_t)((value * CMPS_PER_KNOT_E4) / KNOT_SCALE);
+        const int64_t speed_cmps = (value * CMPS_PER_KNOT_E4) / KNOT_SCALE;
+        next.speed_cmps = (uint32_t)speed_cmps;
         /* Course is empty when the receiver is not moving: keep the last one. */
         if ((fields[8].len > 0U) && parse_fixed(fields[8], 2U, &value) && (value >= 0))
         {
-            next.course_cdeg = (uint16_t)(value % CDEG_FULL_CIRCLE);
+            const int64_t course_cdeg = value % CDEG_FULL_CIRCLE;
+            next.course_cdeg = (uint16_t)course_cdeg;
         }
     }
     *fix = next;
@@ -279,7 +287,7 @@ static nmea_result_t parse_rmc(const field_t *fields, uint32_t count, nmea_fix_t
 
 nmea_result_t nmea_parse(const char *line, nmea_fix_t *fix)
 {
-    const char *body = 0;
+    const char *body = NULL;
     size_t body_len = 0U;
     field_t fields[MAX_FIELDS];
 

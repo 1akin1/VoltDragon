@@ -31,15 +31,15 @@ static bool hex_value(char c, uint8_t *value)
 {
     if (is_digit(c))
     {
-        *value = (uint8_t)(c - '0');
+        *value = (uint8_t)((uint32_t)c - (uint32_t)'0');
     }
     else if ((c >= 'A') && (c <= 'F'))
     {
-        *value = (uint8_t)((c - 'A') + 10);
+        *value = (uint8_t)(((uint32_t)c - (uint32_t)'A') + 10U);
     }
     else if ((c >= 'a') && (c <= 'f'))
     {
-        *value = (uint8_t)((c - 'a') + 10);
+        *value = (uint8_t)(((uint32_t)c - (uint32_t)'a') + 10U);
     }
     else
     {
@@ -140,7 +140,7 @@ bool cmd_parse_u32(const char *text, uint32_t *value)
         {
             return false;
         }
-        const uint32_t digit = (uint32_t)(text[i] - '0');
+        const uint32_t digit = (uint32_t)text[i] - (uint32_t)'0';
         if (result > ((UINT32_MAX - digit) / 10U))
         {
             return false;
@@ -215,7 +215,7 @@ static cmd_error_t check_frame(const char *line, const char **body, size_t *body
 
 cmd_error_t cmd_parse(const char *line, cmd_request_t *req)
 {
-    const char *body = 0;
+    const char *body = NULL;
     size_t body_len = 0U;
 
     (void)memset(req, 0, sizeof(*req));
@@ -332,13 +332,14 @@ static void append_text(cmd_response_t *rsp, const char *text)
 
 static void append_u32(cmd_response_t *rsp, uint32_t value)
 {
+    static const char DIGIT_CHARS[] = "0123456789";
     char digits[U32_DIGITS_MAX];
     uint32_t count = 0U;
     uint32_t v = value;
 
     do
     {
-        digits[count] = (char)('0' + (char)(v % 10U));
+        digits[count] = DIGIT_CHARS[v % 10U];
         v /= 10U;
         count++;
     } while ((v != 0U) && (count < U32_DIGITS_MAX));

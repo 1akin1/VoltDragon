@@ -70,7 +70,9 @@ at 15.999 s, HLR-009: within 2 s), `tests/robot/node_a_ai.robot` and `system_tel
 ## Phase 6 - Process and documentation (week 6)
 - [x] Produce the HLR -> LLR -> code -> test traceability matrix ([traceability.md](traceability.md)),
       generated from the requirements by `tools/trace/trace.py` and checked in CI
-- [ ] Produce a MISRA report (cppcheck) and an MC/DC coverage report for one module
+- [x] Produce a MISRA report with cppcheck ([report](misra-report.md), [plan](misra-deviations.md)):
+      no open findings, checked in CI
+- [ ] Produce an MC/DC coverage report for one module
 - [ ] Add ARINC 429 output to Node B (optional)
 - [ ] Write the English README, architecture diagram and a short demo video
 

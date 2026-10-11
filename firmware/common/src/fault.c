@@ -4,6 +4,7 @@
  */
 #include "fault.h"
 
+#include <stddef.h>
 #include <stdint.h>
 
 #include "log.h"
@@ -77,7 +78,7 @@ static const char *cfsr_bit_name(uint32_t bit)
         "UNDEFINSTR", "INVSTATE", "INVPC", "NOCP", 0, 0, 0, 0,
         "UNALIGNED", "DIVBYZERO", 0, 0, 0, 0, 0, 0,
     };
-    return (bit < 32U) ? names[bit] : 0;
+    return (bit < 32U) ? names[bit] : NULL;
 }
 
 void fault_print(const fault_record_t *record)
@@ -94,7 +95,7 @@ void fault_print(const fault_record_t *record)
     for (uint32_t bit = 0U; bit < 32U; ++bit)
     {
         const char *name = cfsr_bit_name(bit);
-        if (((record->cfsr & (1UL << bit)) != 0U) && (name != 0))
+        if (((record->cfsr & (1UL << bit)) != 0U) && (name != NULL))
         {
             log_printf(" %s", name);
         }
@@ -158,6 +159,7 @@ void fault_trigger(fault_test_t kind)
         {
             /* Traps because startup sets SCB_CCR.DIV_0_TRP: UsageFault (DIVBYZERO). */
             volatile uint32_t divisor = 0U;
+            /* cppcheck-suppress zerodiv ; deliberate, to test the fault handler (D-004) */
             volatile uint32_t result = 100U / divisor;
             (void)result;
             break;

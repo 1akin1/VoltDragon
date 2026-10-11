@@ -11,6 +11,7 @@
 #include "log.h"
 #include "net.h"
 #include "reset_info.h"
+#include "systick.h"
 #include "tlm_msg.h"
 
 #define MS_PER_SECOND   (1000UL)
@@ -142,14 +143,13 @@ void telemetry_poll(uint32_t now_ms)
         s_tlm.started = true;
         s_tlm.next_due_ms = now_ms;
     }
-    /* Signed difference handles counter wrap-around. */
-    if ((int32_t)(now_ms - s_tlm.next_due_ms) < 0)
+    if (!systick_reached(now_ms, s_tlm.next_due_ms))
     {
         return;
     }
     /* Keep a steady rate, but do not send a burst after a stall or a rate change. */
-    s_tlm.next_due_ms = ((now_ms - s_tlm.next_due_ms) >= period_ms) ? (now_ms + period_ms)
-                                                                     : (s_tlm.next_due_ms + period_ms);
+    s_tlm.next_due_ms = (((now_ms - s_tlm.next_due_ms) >= period_ms) ? (now_ms + period_ms)
+                                                                      : (s_tlm.next_due_ms + period_ms));
 
     if (!net_link_up())
     {
@@ -160,8 +160,9 @@ void telemetry_poll(uint32_t now_ms)
     uint8_t bytes[TLM_PACKET_LEN];
     build(&packet, now_ms);
     const size_t len = tlm_encode(&packet, bytes, sizeof(bytes));
+    const bool sent = net_send_telemetry(bytes, len);
 
-    if (net_send_telemetry(bytes, len))
+    if (sent)
     {
         s_tlm.seq++;
         s_tlm.sent_since_report++;

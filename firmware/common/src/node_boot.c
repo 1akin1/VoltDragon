@@ -77,10 +77,12 @@ char node_debug_console_poll(void)
             for (;;)
             {
             }
+            break; /* not reached */
         case 'r':
             LOG_WARN("software reset requested");
             log_flush();
             reset_info_system_reset();
+            break; /* not reached */
         case '?':
             print_help();
             break;

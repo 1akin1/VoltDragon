@@ -4,6 +4,8 @@
  */
 #include "mt25q.h"
 
+#include <stddef.h>
+
 #include "board.h"
 #include "spi.h"
 
@@ -64,7 +66,7 @@ static bool in_range(uint32_t addr, size_t len)
 mt25q_status_t mt25q_init(uint32_t *size_bytes)
 {
     const uint8_t cmd = CMD_READ_ID;
-    uint8_t id[ID_LEN] = { 0U };
+    uint8_t id[ID_LEN] = { 0 };
 
     board_flash_bus_init();
     spi_init(BOARD_FLASH_SPI, BOARD_FLASH_SPI_BR);
@@ -91,7 +93,7 @@ mt25q_status_t mt25q_read(uint32_t addr, uint8_t *buf, size_t len)
 {
     uint8_t header[ADDR_CMD_LEN];
 
-    if ((buf == 0) || !in_range(addr, len))
+    if ((buf == NULL) || !in_range(addr, len))
     {
         return MT25Q_ERR_ARG;
     }
@@ -115,7 +117,7 @@ mt25q_status_t mt25q_program_start(uint32_t addr, const uint8_t *data, size_t le
     const uint32_t page_offset = addr % MT25Q_PAGE_SIZE;
 
     /* A program that runs past the page end wraps to the page start on the device. */
-    if ((data == 0) || !in_range(addr, len) || (len > (MT25Q_PAGE_SIZE - page_offset)))
+    if ((data == NULL) || !in_range(addr, len) || (len > (MT25Q_PAGE_SIZE - page_offset)))
     {
         return MT25Q_ERR_ARG;
     }

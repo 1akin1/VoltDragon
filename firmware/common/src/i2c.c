@@ -5,6 +5,7 @@
 #include "i2c.h"
 
 #include <stdbool.h>
+#include <stddef.h>
 
 /* Upper bound on status polls; well over 10 ms at 16 MHz, about 100 byte times at 100 kHz. */
 #define I2C_POLL_LIMIT      (20000UL)
@@ -190,7 +191,7 @@ static i2c_status_t receive_many(i2c_regs_t *i2c, uint8_t *buf, uint32_t len)
 
 i2c_status_t i2c_read_regs(i2c_regs_t *i2c, uint8_t addr, uint8_t reg, uint8_t *buf, uint32_t len)
 {
-    if ((buf == 0) || (len == 0U))
+    if ((buf == NULL) || (len == 0U))
     {
         return I2C_ERR_ARG;
     }

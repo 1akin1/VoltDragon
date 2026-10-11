@@ -5,11 +5,21 @@
 #ifndef SYSTICK_H
 #define SYSTICK_H
 
+#include <stdbool.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/**
+ * True once @p now_ms has reached @p due_ms, allowing for wrap-around of the
+ * millisecond count: a due time up to about 24.8 days ahead is in the future.
+ */
+static inline bool systick_reached(uint32_t now_ms, uint32_t due_ms)
+{
+    return (now_ms - due_ms) < 0x80000000UL;
+}
 
 /** Starts a 1 kHz SysTick interrupt from the core clock. */
 void systick_init(uint32_t core_hz);

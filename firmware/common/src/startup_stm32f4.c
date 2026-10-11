@@ -140,7 +140,7 @@ void HASH_RNG_IRQHandler(void) WEAK_ALIAS;
 void FPU_IRQHandler(void) WEAK_ALIAS;
 
 __attribute__((section(".isr_vector"), used))
-const vector_table_t g_vector_table = {
+static const vector_table_t s_vector_table = {
     .initial_sp = _estack,
     .handlers = {
         /* Cortex-M system exceptions */
@@ -249,7 +249,7 @@ const vector_table_t g_vector_table = {
  */
 static void system_init(void)
 {
-    SCB->VTOR = (uint32_t)&g_vector_table;
+    SCB->VTOR = (uint32_t)&s_vector_table;
     SCB->CCR |= SCB_CCR_DIV_0_TRP;
     __asm volatile("dsb\n\tisb" ::: "memory");
 }
@@ -260,16 +260,23 @@ void Reset_Handler(void)
     SCB_CPACR |= SCB_CPACR_CP10_CP11_FULL;
     __asm volatile("dsb\n\tisb" ::: "memory");
 
+    /* The section boundaries are separate linker symbols (deviation D-003). */
     const uint32_t *src = _sidata;
-    for (uint32_t *dst = _sdata; dst < _edata; ++dst)
+    uint32_t *dst = _sdata;
+    /* cppcheck-suppress comparePointers */
+    while (dst < _edata)
     {
         *dst = *src;
+        ++dst;
         ++src;
     }
 
-    for (uint32_t *dst = _sbss; dst < _ebss; ++dst)
+    dst = _sbss;
+    /* cppcheck-suppress comparePointers */
+    while (dst < _ebss)
     {
         *dst = 0U;
+        ++dst;
     }
 
     system_init();

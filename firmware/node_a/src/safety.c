@@ -112,6 +112,13 @@ static void trigger(flight_mode_t target, flight_cause_t cause)
     change_mode(target, cause, false);
 }
 
+/* Distance in whole decimetres, for the log. */
+static unsigned int log_dm(float distance_m)
+{
+    const float dm = distance_m * DM_PER_M;
+    return (unsigned int)dm;
+}
+
 static void update_distance(uint32_t now_ms)
 {
     nmea_fix_t fix;
@@ -131,13 +138,13 @@ static void update_distance(uint32_t now_ms)
         s->proximity = true;
         /* The fix age shows how long after the new position the warning was raised (HLR-002). */
         LOG_WARN("safety: PROXIMITY_WARNING, %u dm from a conductor (fix age %lu ms), moving away",
-                 (unsigned int)(s->distance_m * DM_PER_M), gps_fix_age_ms(now_ms));
+                 log_dm(s->distance_m), gps_fix_age_ms(now_ms));
     }
     else if (s->proximity && (s->distance_m > SAFETY_CLEAR_DISTANCE_M))
     {
         s->proximity = false;
         LOG_INFO("safety: proximity warning cleared at %u dm",
-                 (unsigned int)(s->distance_m * DM_PER_M));
+                 log_dm(s->distance_m));
     }
     else
     {
@@ -310,7 +317,7 @@ void safety_report(void)
     LOG_INFO("safety: mode %s, distance %s%u dm, battery %u %%, autopilot %s, ground link %s, "
              "rejected requests %lu",
              flight_mode_name(s.mode), s.have_distance ? "" : "unknown/",
-             s.have_distance ? (unsigned int)(s.distance_m * DM_PER_M) : 0U,
+             s.have_distance ? log_dm(s.distance_m) : 0U,
              (unsigned int)s.battery_pct, s.autopilot_ok ? "ok" : "silent",
              s.link_lost ? "LOST" : "ok", s.rejected_requests);
 }

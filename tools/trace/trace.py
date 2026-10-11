@@ -30,6 +30,7 @@ CODE_SUFFIXES = {".c", ".cc", ".h", ".ld", ".py"}
 
 # Verification methods named in plain text in the LLR test column.
 INSPECTION = "Inspection"
+ANALYSIS = "Analysis"
 BUILD = "Build"
 ALL_ROBOT = "All Robot tests"
 
@@ -196,6 +197,8 @@ def load(repo: Repository) -> tuple[list[Hlr], list[Llr], list[str]]:
             llr.other_methods.append("All Robot tests (every test boots the firmware)")
         if INSPECTION in plain:
             llr.other_methods.append(INSPECTION)
+        if ANALYSIS in plain:
+            llr.other_methods.append(plain.strip())
         if re.search(rf"\b{BUILD}\b", plain):
             llr.other_methods.append("Build (enforced at link time)")
         if not llr.tests and not llr.other_methods:
@@ -301,8 +304,8 @@ def render(hlrs: list[Hlr], llrs: list[Llr], repo: Repository) -> str:
         "",
         "## LLRs without a named test",
         "",
-        "These LLRs are verified by inspection, by the build, or by every Robot test",
-        "(start-up and console behaviour that all of them depend on).",
+        "These LLRs are verified by inspection, by analysis, by the build, or by every",
+        "Robot test (start-up and console behaviour that all of them depend on).",
         "",
     ]
     out += [

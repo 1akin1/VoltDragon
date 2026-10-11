@@ -6,6 +6,7 @@
 
 #include <stdarg.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #include "systick.h"
@@ -20,7 +21,7 @@ static log_lock_fn_t s_unlock;
 
 static void out_char(char c)
 {
-    if (s_uart != 0)
+    if (s_uart != NULL)
     {
         uart_putc(s_uart, c);
     }
@@ -64,7 +65,7 @@ static void out_signed(int32_t value, uint32_t width, char pad)
         /* Negate in unsigned arithmetic so INT32_MIN is handled. */
         const uint32_t magnitude = 0U - (uint32_t)value;
         out_char('-');
-        out_unsigned(magnitude, 10U, false, (width > 0U) ? (width - 1U) : 0U, pad);
+        out_unsigned(magnitude, 10U, false, ((width > 0U) ? (width - 1U) : 0U), pad);
     }
     else
     {
@@ -124,7 +125,7 @@ static void log_vprintf(const char *fmt, va_list args)
             case 's':
             {
                 const char *s = va_arg(args, const char *);
-                for (const char *c = (s != 0) ? s : "(null)"; *c != '\0'; ++c)
+                for (const char *c = (s != NULL) ? s : "(null)"; *c != '\0'; ++c)
                 {
                     out_char(*c);
                 }
@@ -160,7 +161,7 @@ void log_line(char level, const char *fmt, ...)
 {
     va_list args;
 
-    if (s_lock != 0)
+    if (s_lock != NULL)
     {
         s_lock();
     }
@@ -183,7 +184,7 @@ void log_line(char level, const char *fmt, ...)
     out_char('\r');
     out_char('\n');
 
-    if (s_unlock != 0)
+    if (s_unlock != NULL)
     {
         s_unlock();
     }
@@ -200,7 +201,7 @@ void log_printf(const char *fmt, ...)
 
 void log_flush(void)
 {
-    if (s_uart != 0)
+    if (s_uart != NULL)
     {
         uart_flush(s_uart);
     }

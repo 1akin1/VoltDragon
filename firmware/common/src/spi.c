@@ -4,6 +4,8 @@
  */
 #include "spi.h"
 
+#include <stddef.h>
+
 /* Upper bound on status polls; one byte takes 16 core cycles at PCLK/2, so this is very generous. */
 #define SPI_POLL_LIMIT  (20000UL)
 #define SPI_FILL_BYTE   (0xFFU)
@@ -45,7 +47,7 @@ bool spi_transfer(spi_regs_t *spi, const uint8_t *tx, uint8_t *rx, size_t len)
         {
             return false;
         }
-        spi->DR = (tx != 0) ? tx[i] : SPI_FILL_BYTE;
+        spi->DR = (tx != NULL) ? tx[i] : SPI_FILL_BYTE;
 
         /* One byte in flight at a time: wait for its reply before sending the next. */
         if (!wait_flag(spi, SPI_SR_RXNE, true))
@@ -53,7 +55,7 @@ bool spi_transfer(spi_regs_t *spi, const uint8_t *tx, uint8_t *rx, size_t len)
             return false;
         }
         const uint8_t byte = (uint8_t)spi->DR;
-        if (rx != 0)
+        if (rx != NULL)
         {
             rx[i] = byte;
         }

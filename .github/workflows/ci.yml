@@ -37,6 +37,36 @@ jobs:
             build/${{ matrix.preset }}/firmware/**/*.bin
             build/${{ matrix.preset }}/firmware/**/*.map
 
+  misra:
+    name: MISRA C check (cppcheck)
+    runs-on: ubuntu-24.04
+    # Debian bookworm's cppcheck 2.10, the version the development environment uses:
+    # the MISRA addon's findings change between versions, and the report is versioned.
+    container: debian:bookworm
+    steps:
+      - name: Install tools
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            git ca-certificates python3 cppcheck cmake ninja-build \
+            gcc-arm-none-eabi libnewlib-arm-none-eabi libstdc++-arm-none-eabi-newlib
+
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Configure (include paths for the analysis)
+        run: cmake --preset debug
+
+      - name: No open findings, and the report is current
+        run: python3 tools/misra/misra.py --check
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: misra
+          path: build/misra/cppcheck.xml
+
   unit-tests:
     name: Host unit tests
     runs-on: ubuntu-24.04

@@ -45,13 +45,14 @@ static void append(char *out, size_t size, size_t *len, const char *text)
 
 static void append_u32(char *out, size_t size, size_t *len, uint32_t value)
 {
+    static const char DIGIT_CHARS[] = "0123456789";
     char digits[11];
     uint32_t n = 0U;
     uint32_t v = value;
 
     do
     {
-        digits[n] = (char)('0' + (char)(v % 10U));
+        digits[n] = DIGIT_CHARS[v % 10U];
         v /= 10U;
         n++;
     } while (v != 0U);
@@ -101,11 +102,11 @@ static uint32_t split_frame(const char *line, char fields[MAX_FIELDS][FIELD_MAX 
         uint32_t digit;
         if ((c >= '0') && (c <= '9'))
         {
-            digit = (uint32_t)(c - '0');
+            digit = (uint32_t)c - (uint32_t)'0';
         }
         else if ((c >= 'A') && (c <= 'F'))
         {
-            digit = (uint32_t)(c - 'A') + 10U;
+            digit = ((uint32_t)c - (uint32_t)'A') + 10U;
         }
         else
         {
