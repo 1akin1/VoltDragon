@@ -29,6 +29,17 @@
         "CMAKE_BUILD_TYPE": "Debug",
         "VOLTDRAGON_HOST_TESTS": "ON"
       }
+    },
+    {
+      "name": "coverage",
+      "inherits": "host-tests",
+      "displayName": "Host unit tests with coverage and MC/DC (clang 19)",
+      "binaryDir": "${sourceDir}/build/coverage",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "clang-19",
+        "CMAKE_CXX_COMPILER": "clang++-19",
+        "VOLTDRAGON_COVERAGE": "ON"
+      }
     }
   ],
   "buildPresets": [
@@ -43,6 +54,10 @@
     {
       "name": "host-tests",
       "configurePreset": "host-tests"
+    },
+    {
+      "name": "coverage",
+      "configurePreset": "coverage"
     }
   ],
   "testPresets": [

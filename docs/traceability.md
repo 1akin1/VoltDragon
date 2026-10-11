@@ -15,30 +15,30 @@ not exist. CI runs `python tools/trace/trace.py --check` to keep it current.
 |------|------:|
 | High-level requirements | 20 |
 | HLRs refined by at least one LLR | 19 |
-| Low-level requirements | 92 |
-| Derived LLRs (no parent HLR) | 12 |
-| LLRs verified by at least one named test | 82 |
-| Test cases indexed (Robot / unit / pytest) | 224 (70 Robot, 78 Unit, 76 pytest) |
-| Test cases traced to an LLR | 185 |
+| Low-level requirements | 93 |
+| Derived LLRs (no parent HLR) | 13 |
+| LLRs verified by at least one named test | 83 |
+| Test cases indexed (Robot / unit / pytest) | 241 (70 Robot, 95 Unit, 76 pytest) |
+| Test cases traced to an LLR | 202 |
 
 ## HLR to LLR
 
 | HLR | Requirement | Verif. | LLRs | Tests |
 |-----|-------------|--------|------|-------|
-| HLR-001 | The system shall not let the UAV get closer than 10 m to the power line. | T | [LLR-102](#llr-102), [LLR-121](#llr-121) | 1 Robot, 1 Unit, 14 pytest |
-| HLR-002 | When the estimated line distance drops below 12 m, the system shall raise a `PROXIMITY_WARNING` within 100 ms and command a lateral move away from the line. | T | [LLR-102](#llr-102), [LLR-121](#llr-121), [LLR-130](#llr-130), [LLR-131](#llr-131) | 2 Robot, 5 Unit, 14 pytest |
-| HLR-003 | If the ground link is lost for more than 3 s, the system shall enter `RETURN_TO_HOME` mode. | T | [LLR-078](#llr-078), [LLR-102](#llr-102), [LLR-103](#llr-103), [LLR-122](#llr-122), [LLR-131](#llr-131) | 4 Robot, 15 pytest |
-| HLR-004 | If battery state of charge falls below 20 %, the system shall enter `RETURN_TO_HOME` mode, and below 10 % it shall enter `LAND` mode. | T | [LLR-102](#llr-102), [LLR-123](#llr-123), [LLR-131](#llr-131) | 3 Robot, 13 pytest |
-| HLR-005 | Mode transitions shall follow only the transitions defined in the flight-mode state machine; any undefined transition request shall be rejected and logged. | T, A | [LLR-120](#llr-120), [LLR-124](#llr-124), [LLR-126](#llr-126) | 4 Robot, 4 Unit |
-| HLR-006 | A ground-station command shall not override an active safety mode (`RETURN_TO_HOME`, `LAND`) unless the operator sends an explicit override command. | T | [LLR-120](#llr-120), [LLR-124](#llr-124), [LLR-126](#llr-126) | 4 Robot, 4 Unit |
+| HLR-001 | The system shall not let the UAV get closer than 10 m to the power line. | T | [LLR-102](#llr-102), [LLR-121](#llr-121) | 1 Robot, 3 Unit, 14 pytest |
+| HLR-002 | When the estimated line distance drops below 12 m, the system shall raise a `PROXIMITY_WARNING` within 100 ms and command a lateral move away from the line. | T | [LLR-102](#llr-102), [LLR-121](#llr-121), [LLR-130](#llr-130), [LLR-131](#llr-131) | 2 Robot, 9 Unit, 14 pytest |
+| HLR-003 | If the ground link is lost for more than 3 s, the system shall enter `RETURN_TO_HOME` mode. | T | [LLR-078](#llr-078), [LLR-102](#llr-102), [LLR-103](#llr-103), [LLR-122](#llr-122), [LLR-131](#llr-131) | 4 Robot, 5 Unit, 15 pytest |
+| HLR-004 | If battery state of charge falls below 20 %, the system shall enter `RETURN_TO_HOME` mode, and below 10 % it shall enter `LAND` mode. | T | [LLR-102](#llr-102), [LLR-123](#llr-123), [LLR-131](#llr-131) | 3 Robot, 6 Unit, 13 pytest |
+| HLR-005 | Mode transitions shall follow only the transitions defined in the flight-mode state machine; any undefined transition request shall be rejected and logged. | T, A | [LLR-120](#llr-120), [LLR-124](#llr-124), [LLR-126](#llr-126) | 4 Robot, 8 Unit |
+| HLR-006 | A ground-station command shall not override an active safety mode (`RETURN_TO_HOME`, `LAND`) unless the operator sends an explicit override command. | T | [LLR-120](#llr-120), [LLR-124](#llr-124), [LLR-126](#llr-126) | 4 Robot, 8 Unit |
 | HLR-007 | Node A shall sample the IMU at 100 Hz or faster. | T, A | [LLR-043](#llr-043), [LLR-044](#llr-044), [LLR-055](#llr-055), [LLR-110](#llr-110) | 4 Robot |
 | HLR-008 | Node A shall detect magnetometer readings that are corrupted by the power line's magnetic field and shall stop using magnetometer heading while the corruption lasts. | T | [LLR-093](#llr-093), [LLR-094](#llr-094), [LLR-095](#llr-095), [LLR-096](#llr-096) | 3 Robot, 4 pytest |
 | HLR-009 | Node A shall detect motor/propeller vibration faults by on-board inference and shall report a `VIBRATION_FAULT` alarm to the ground station within 2 s of fault onset. | T | [LLR-083](#llr-083), [LLR-102](#llr-102), [LLR-110](#llr-110), [LLR-140](#llr-140), [LLR-141](#llr-141), [LLR-142](#llr-142), [LLR-143](#llr-143), [LLR-144](#llr-144), [LLR-145](#llr-145), [LLR-146](#llr-146) | 12 Robot, 12 Unit, 15 pytest |
 | HLR-010 | Each sensor sample shall be range- and staleness-checked, and invalid data shall be flagged and excluded from control. | T | [LLR-004](#llr-004), [LLR-041](#llr-041), [LLR-042](#llr-042), [LLR-045](#llr-045), [LLR-074](#llr-074), [LLR-076](#llr-076), [LLR-090](#llr-090), [LLR-091](#llr-091), [LLR-092](#llr-092), [LLR-132](#llr-132) | 11 Robot, 11 Unit, 1 pytest |
 | HLR-011 | Node A shall send sensor and status data to Node B over CAN at 50 Hz or faster. | T | [LLR-070](#llr-070), [LLR-072](#llr-072), [LLR-110](#llr-110) | 9 Robot, 1 pytest |
-| HLR-012 | Node B shall forward telemetry to the ground station as UDP packets at 10 Hz or faster. | T | [LLR-066](#llr-066), [LLR-080](#llr-080), [LLR-081](#llr-081), [LLR-082](#llr-082), [LLR-083](#llr-083), [LLR-125](#llr-125) | 13 Robot, 1 pytest |
+| HLR-012 | Node B shall forward telemetry to the ground station as UDP packets at 10 Hz or faster. | T | [LLR-066](#llr-066), [LLR-080](#llr-080), [LLR-081](#llr-081), [LLR-082](#llr-082), [LLR-083](#llr-083), [LLR-125](#llr-125) | 13 Robot, 1 Unit, 1 pytest |
 | HLR-013 | Every CAN frame and telemetry packet shall carry a sequence counter and a CRC, and the receiver shall discard corrupted frames and count lost ones. | T | [LLR-062](#llr-062), [LLR-071](#llr-071), [LLR-073](#llr-073), [LLR-074](#llr-074), [LLR-075](#llr-075), [LLR-078](#llr-078), [LLR-084](#llr-084), [LLR-100](#llr-100) | 6 Robot, 31 Unit, 6 pytest |
-| HLR-014 | Node B shall accept operator commands over its UART command interface and over UDP, and shall acknowledge or reject each command. | T | [LLR-060](#llr-060), [LLR-061](#llr-061), [LLR-062](#llr-062), [LLR-063](#llr-063), [LLR-064](#llr-064), [LLR-065](#llr-065), [LLR-066](#llr-066), [LLR-076](#llr-076), [LLR-085](#llr-085), [LLR-126](#llr-126) | 18 Robot, 35 Unit |
+| HLR-014 | Node B shall accept operator commands over its UART command interface and over UDP, and shall acknowledge or reject each command. | T | [LLR-060](#llr-060), [LLR-061](#llr-061), [LLR-062](#llr-062), [LLR-063](#llr-063), [LLR-064](#llr-064), [LLR-065](#llr-065), [LLR-066](#llr-066), [LLR-076](#llr-076), [LLR-085](#llr-085), [LLR-126](#llr-126) | 18 Robot, 36 Unit |
 | HLR-015 | Node B may output selected parameters (altitude, heading, line distance) as ARINC 429 words. *(Optional)* | T | **none** | - |
 | HLR-016 | Each node shall be supervised by a hardware watchdog and shall recover to a safe state after a watchdog reset. | T | [LLR-010](#llr-010), [LLR-011](#llr-011), [LLR-022](#llr-022), [LLR-031](#llr-031), [LLR-112](#llr-112), [LLR-113](#llr-113), [LLR-114](#llr-114), [LLR-115](#llr-115) | 8 Robot |
 | HLR-017 | Each node shall keep a reset counter and the last fault cause across resets, and shall report them in telemetry at start-up. | T | [LLR-003](#llr-003), [LLR-012](#llr-012), [LLR-013](#llr-013), [LLR-014](#llr-014), [LLR-020](#llr-020), [LLR-021](#llr-021), [LLR-023](#llr-023), [LLR-083](#llr-083), [LLR-115](#llr-115) | 12 Robot |
@@ -259,7 +259,7 @@ HLRs without an LLR:
 
 - Code: [`cmd_dispatch.c`](../firmware/common/src/cmd_dispatch.c), [`commands.c`](../firmware/node_b/src/commands.c)
 - Robot: [Should Reject Unknown Commands](../tests/robot/node_b_commands.robot#L97), [Should Reject Invalid Arguments](../tests/robot/node_b_commands.robot#L88)
-- Unit: [rejects_bad_status](../tests/unit/test_ap_msg.c#L53), [rejects_unknown_verb](../tests/unit/test_cmd_dispatch.c#L101), [rejects_overlong_verb_without_echoing_it](../tests/unit/test_cmd_dispatch.c#L110), [rejects_wrong_argument_count](../tests/unit/test_cmd_dispatch.c#L117), [rejects_argument_refused_by_handler](../tests/unit/test_cmd_dispatch.c#L126), [rejects_corrupt_frames_with_unknown_sequence](../tests/unit/test_cmd_dispatch.c#L141), [rejects_out_of_range_values](../tests/unit/test_flight_mode.c#L97), [rejects_bad_sentences_without_changing_the_fix](../tests/unit/test_nmea.c#L87), [rejects_any_single_bit_error](../tests/unit/test_tlm_msg.c#L107), [rejects_wrong_length](../tests/unit/test_tlm_msg.c#L124), [refused_request_gets_a_clean_nak](../tests/unit/test_cmd_dispatch.c#L133)
+- Unit: [rejects_bad_status](../tests/unit/test_ap_msg.c#L53), [rejects_unknown_verb](../tests/unit/test_cmd_dispatch.c#L101), [rejects_overlong_verb_without_echoing_it](../tests/unit/test_cmd_dispatch.c#L110), [rejects_wrong_argument_count](../tests/unit/test_cmd_dispatch.c#L117), [rejects_argument_refused_by_handler](../tests/unit/test_cmd_dispatch.c#L126), [rejects_corrupt_frames_with_unknown_sequence](../tests/unit/test_cmd_dispatch.c#L141), [rejects_out_of_range_values](../tests/unit/test_flight_mode.c#L97), [rejects_bad_sentences_without_changing_the_fix](../tests/unit/test_nmea.c#L87), [rejects_an_unknown_mode](../tests/unit/test_safety.c#L385), [rejects_any_single_bit_error](../tests/unit/test_tlm_msg.c#L107), [rejects_wrong_length](../tests/unit/test_tlm_msg.c#L124), [refused_request_gets_a_clean_nak](../tests/unit/test_cmd_dispatch.c#L133)
 
 <a id="llr-064"></a>**LLR-064** (HLR-014): Every complete line shall receive exactly one response, `ACK` or `NAK`, carrying the request's sequence number when it can be trusted and a valid checksum.
 
@@ -485,36 +485,46 @@ HLRs without an LLR:
 
 - Code: [`safety.c`](../firmware/node_a/src/safety.c), [`route.c`](../firmware/node_a/src/route.c)
 - Robot: [Should Warn And Keep Away From The Line](../tests/robot/system_safety.robot#L114)
-- Unit: [matches_the_plant_model](../tests/unit/test_route.c#L36)
+- Unit: [matches_the_plant_model](../tests/unit/test_route.c#L36), [warns_below_12_m_and_clears_above_15_m](../tests/unit/test_safety.c#L181), [keeps_the_last_decision_without_a_fix](../tests/unit/test_safety.c#L210)
 - pytest: [test_close_pass_keeps_10_m_from_the_line](../tests/integration/test_mission.py#L45), [test_proximity_warning_and_avoidance_order](../tests/integration/test_mission.py#L52), [test_faulty_autopilot_flies_the_plan_while_node_a_warns](../tests/integration/test_mission.py#L72)
 
 <a id="llr-122"></a>**LLR-122** (HLR-003): Once a ground station has been heard, Node A shall enter RETURN_TO_HOME when the ground link age (Node B's report plus the time since that report) exceeds 3 s.
 
 - Code: [`safety.c`](../firmware/node_a/src/safety.c)
 - Robot: [Should Keep The Mission While Heartbeats Arrive And Return Home When They Stop](../tests/robot/system_safety.robot#L138), [Should Not Lose The Link Before A Ground Station Is Heard](../tests/robot/system_safety.robot#L155)
+- Unit: [does_not_lose_a_link_never_established](../tests/unit/test_safety.c#L227), [returns_home_3_s_after_the_last_contact_and_reports_recovery](../tests/unit/test_safety.c#L236), [counts_node_b_silence_as_link_age](../tests/unit/test_safety.c#L259)
 - pytest: [test_link_loss_returns_home_after_3_s](../tests/integration/test_safety.py#L36), [test_vehicle_turns_back_on_link_loss](../tests/integration/test_safety.py#L45), [test_mission_continues_without_safety_mode_changes](../tests/integration/test_mission.py#L66)
 
 <a id="llr-123"></a>**LLR-123** (HLR-004): Node A shall enter RETURN_TO_HOME when the autopilot's battery report falls below 20 %, and LAND below 10 %, each when the condition starts.
 
 - Code: [`safety.c`](../firmware/node_a/src/safety.c)
 - Robot: [Should Return Home On Low Battery And Land On Critical Battery](../tests/robot/system_safety.robot#L195)
+- Unit: [returns_home_below_20_percent_and_lands_below_10](../tests/unit/test_safety.c#L275), [lands_at_once_on_a_sudden_critical_battery](../tests/unit/test_safety.c#L298), [ignores_the_battery_while_the_autopilot_is_silent](../tests/unit/test_safety.c#L308), [a_trigger_towards_the_current_mode_does_nothing](../tests/unit/test_safety.c#L324)
 - pytest: [test_low_battery_returns_home_then_critical_battery_lands](../tests/integration/test_safety.py#L54), [test_vehicle_descends_at_1_mps_when_landing](../tests/integration/test_safety.py#L68)
 
 <a id="llr-124"></a>**LLR-124** (HLR-005, HLR-006): Node A shall apply operator mode requests from Node B through the transition table, log and count rejected ones, and report the last handled request id. A request id repeated within 500 ms shall be ignored.
 
 - Code: [`safety.c`](../firmware/node_a/src/safety.c)
 - Robot: [Should Need An Override To Leave Return To Home](../tests/robot/system_safety.robot#L161), [Should Hold And Resume On Operator Request](../tests/robot/system_safety.robot#L178), [Should Treat Land As Final](../tests/robot/system_safety.robot#L211)
+- Unit: [applies_operator_requests_through_the_transition_table](../tests/unit/test_safety.c#L358), [rejects_an_unknown_mode](../tests/unit/test_safety.c#L385), [ignores_a_repeated_request_id_within_500_ms](../tests/unit/test_safety.c#L395), [nothing_triggers_out_of_land](../tests/unit/test_safety.c#L336)
 
 <a id="llr-125"></a>**LLR-125** (HLR-012): Node A shall send its safety state (mode, distance, battery, flags including the vibration alarm, last request id) in the CAN SAFETY message at 50 Hz.
 
 - Code: [`can_tx.c`](../firmware/node_a/src/can_tx.c), [`safety.c`](../firmware/node_a/src/safety.c)
 - Robot: [Should Return Home On Low Battery And Land On Critical Battery](../tests/robot/system_safety.robot#L195)
+- Unit: [encodes_the_state_for_the_can_safety_message](../tests/unit/test_safety.c#L419)
 - pytest: [test_position_and_safety_state_reach_node_b](../tests/integration/test_mission.py#L133)
 
 <a id="llr-126"></a>**LLR-126** (HLR-005, HLR-006, HLR-014): Node B's `MODE <mode> [OVERRIDE]` command shall check the request against the transition table and the mode Node A is expected to be in (the last forwarded request's mode until Node A confirms it or 500 ms pass, otherwise Node A's reported mode), answer `REFUSED` for a transition not allowed or before Node A has reported its mode, and forward allowed requests in a MODE_REQ frame.
 
 - Code: [`commands.c`](../firmware/node_b/src/commands.c), [`can_rx.c`](../firmware/node_b/src/can_rx.c)
 - Robot: [Should Need An Override To Leave Return To Home](../tests/robot/system_safety.robot#L161), [Should Reject Malformed Mode Requests](../tests/robot/system_safety.robot#L188), [Should Treat Land As Final](../tests/robot/system_safety.robot#L211)
+
+<a id="llr-127"></a>**LLR-127** (derived): Once per second Node A shall log its safety state: mode, distance to the line (or unknown), battery, autopilot and ground link status, and the number of rejected requests.
+
+- Code: [`safety.c`](../firmware/node_a/src/safety.c), [`tasks.c`](../firmware/node_a/src/tasks.c)
+- Robot: [Should Report The Safety State At Start](../tests/robot/system_safety.robot#L108)
+- Unit: [reports_the_state_on_the_console](../tests/unit/test_safety.c#L456)
 
 
 ### Autopilot link (Node A)
@@ -528,6 +538,7 @@ HLRs without an LLR:
 
 - Code: [`safety.c`](../firmware/node_a/src/safety.c)
 - Robot: [Should Report The Safety State At Start](../tests/robot/system_safety.robot#L108), [Should Warn And Keep Away From The Line](../tests/robot/system_safety.robot#L114)
+- Unit: [commands_the_autopilot_at_once_and_then_every_100_ms](../tests/unit/test_safety.c#L152), [sends_a_mode_change_in_the_same_cycle](../tests/unit/test_safety.c#L167)
 
 <a id="llr-132"></a>**LLR-132** (HLR-010): Node A shall count and drop invalid `$VDAPS` sentences, and treat the autopilot as silent (battery unknown) after 1 s without a valid one.
 
@@ -606,6 +617,7 @@ system safety assessment; none of them affects a safety function here.
 - [LLR-077](#llr-077) (Inter-node CAN link)
 - [LLR-111](#llr-111) (Real-time operating system (Node A))
 - [LLR-116](#llr-116) (Real-time operating system (Node A))
+- [LLR-127](#llr-127) (Flight modes and safety (Node A))
 
 ## LLRs without a named test
 

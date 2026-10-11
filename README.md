@@ -52,7 +52,8 @@ flowchart TB
 | `tools/tflm` | Script that vendors the TensorFlow Lite Micro subset |
 | `tools/trace` | Generator and CI check for the traceability matrix |
 | `tools/misra` | MISRA C:2012 check (cppcheck) and report generator |
-| `docs/` | [Roadmap](docs/roadmap.md), [HLR](docs/requirements/HLR.md), [LLR](docs/requirements/LLR.md), [traceability matrix](docs/traceability.md), [debugging](docs/debugging.md), [command interface](docs/command-interface.md), [CAN messages](docs/can-messages.md), [telemetry](docs/telemetry.md), [simulation](docs/simulation.md), [RTOS](docs/rtos.md), [autopilot link and safety logic](docs/autopilot-link.md), [Edge AI](docs/edge-ai.md), [vibration model report](docs/vibration-model-report.md), [MISRA compliance plan](docs/misra-deviations.md), [MISRA report](docs/misra-report.md) |
+| `tools/coverage` | MC/DC coverage measurement (clang) and report generator |
+| `docs/` | [Roadmap](docs/roadmap.md), [HLR](docs/requirements/HLR.md), [LLR](docs/requirements/LLR.md), [traceability matrix](docs/traceability.md), [debugging](docs/debugging.md), [command interface](docs/command-interface.md), [CAN messages](docs/can-messages.md), [telemetry](docs/telemetry.md), [simulation](docs/simulation.md), [RTOS](docs/rtos.md), [autopilot link and safety logic](docs/autopilot-link.md), [Edge AI](docs/edge-ai.md), [vibration model report](docs/vibration-model-report.md), [MISRA compliance plan](docs/misra-deviations.md), [MISRA report](docs/misra-report.md), [MC/DC report](docs/mcdc-report.md) |
 
 ## Building
 
@@ -84,6 +85,9 @@ ctest --preset host-tests
 
 # MISRA C:2012 check with cppcheck 2.10 (after cmake --preset debug; see docs/misra-deviations.md)
 python3 tools/misra/misra.py
+
+# MC/DC coverage of the host unit tests (needs clang-19, llvm-19, libclang-rt-19-dev)
+python3 tools/coverage/mcdc.py
 
 # Renode system tests (needs: pip install -r /opt/renode/tests/requirements.txt)
 renode-test -r build/robot tests/robot/*.robot
@@ -172,8 +176,8 @@ network on TensorFlow Lite Micro ([Edge AI](docs/edge-ai.md)).
 
 Phase 6 in progress: process and documentation.
 
-- The [traceability matrix](docs/traceability.md) links the HLRs to 92 LLRs, the
-  code that implements them and 185 test cases. It is generated from the
+- The [traceability matrix](docs/traceability.md) links the HLRs to 93 LLRs, the
+  code that implements them and 202 test cases. It is generated from the
   requirements tables by `python tools/trace/trace.py`, which fails CI if a named
   file or test no longer exists or the matrix is out of date. Only the optional
   HLR-015 (ARINC 429) has no LLR yet.
@@ -181,6 +185,9 @@ Phase 6 in progress: process and documentation.
   ([report](docs/misra-report.md)). The [compliance plan](docs/misra-deviations.md)
   disapplies two advisory rules and records six deviations and five false positives
   of the tool; every other finding was fixed in the code. CI fails on any new finding.
+- Node A's safety logic (`safety.c`) reaches 100 % statement, decision and MC/DC
+  coverage (24 of 24 conditions) in a new host test with test doubles for its inputs
+  ([MC/DC report](docs/mcdc-report.md)); measured with clang 19 and checked in CI.
 
 See the [roadmap](docs/roadmap.md).
 

@@ -1,7 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "mcp__claude-in-chrome__read_page"
+      "mcp__claude-in-chrome__read_page",
+      "Bash(.venv/Scripts/python.exe tools/trace/trace.py --check)",
+      "Bash(.venv/Scripts/python.exe tools/trace/trace.py)",
+      "Bash(.venv/Scripts/ruff.exe check *)",
+      "Bash(.venv/Scripts/python.exe -P -m pytest -q)"
     ]
   }
 }

@@ -10,6 +10,15 @@ target_include_directories(host_options INTERFACE
     ${FIRMWARE_COMMON}/include
     ${CMAKE_CURRENT_SOURCE_DIR})
 
+# Source-based coverage with MC/DC (clang 18 or newer): the "coverage" preset, read by
+# tools/coverage/mcdc.py. Only project code is instrumented, not third-party libraries.
+option(VOLTDRAGON_COVERAGE "Instrument the host tests for coverage and MC/DC" OFF)
+if(VOLTDRAGON_COVERAGE)
+    target_compile_options(host_options INTERFACE
+        -fprofile-instr-generate -fcoverage-mapping -fcoverage-mcdc)
+    target_link_options(host_options INTERFACE -fprofile-instr-generate)
+endif()
+
 function(add_unit_test name)
     add_executable(${name} ${name}.c ${ARGN})
     target_link_libraries(${name} PRIVATE host_options)
@@ -46,6 +55,14 @@ add_unit_test(test_vib_features
     ${PROJECT_SOURCE_DIR}/firmware/node_a/src/vib_alarm.c)
 target_include_directories(test_vib_features PRIVATE ${PROJECT_SOURCE_DIR}/firmware/node_a/src)
 target_link_libraries(test_vib_features PRIVATE m)
+# Node A's safety logic with test doubles for its inputs and outputs; the doubles' headers
+# (stubs/) come first so they replace the FreeRTOS lock and the console log.
+add_unit_test(test_safety
+    ${PROJECT_SOURCE_DIR}/firmware/node_a/src/safety.c
+    ${FIRMWARE_COMMON}/src/flight_mode.c)
+target_include_directories(test_safety BEFORE PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/stubs
+    ${PROJECT_SOURCE_DIR}/firmware/node_a/src)
 
 # The INT8 classifier on TensorFlow Lite Micro, built natively from the same vendored sources.
 set(TFLM_DIR ${PROJECT_SOURCE_DIR}/third_party/tflite-micro)

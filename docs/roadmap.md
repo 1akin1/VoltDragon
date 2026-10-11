@@ -72,7 +72,8 @@ at 15.999 s, HLR-009: within 2 s), `tests/robot/node_a_ai.robot` and `system_tel
       generated from the requirements by `tools/trace/trace.py` and checked in CI
 - [x] Produce a MISRA report with cppcheck ([report](misra-report.md), [plan](misra-deviations.md)):
       no open findings, checked in CI
-- [ ] Produce an MC/DC coverage report for one module
+- [x] Produce an MC/DC coverage report for one module ([report](mcdc-report.md)): Node A's
+      safety logic at 100 % statement, decision and MC/DC coverage, checked in CI
 - [ ] Add ARINC 429 output to Node B (optional)
 - [ ] Write the English README, architecture diagram and a short demo video
 

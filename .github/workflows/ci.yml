@@ -67,6 +67,30 @@ jobs:
           name: misra
           path: build/misra/cppcheck.xml
 
+  coverage:
+    name: MC/DC coverage (clang 19)
+    runs-on: ubuntu-24.04
+    # Debian bookworm's clang 19, as in the development environment: the report is versioned.
+    container: debian:bookworm
+    steps:
+      - name: Install tools
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            git ca-certificates python3 cmake ninja-build \
+            clang-19 llvm-19 libclang-rt-19-dev libc6-dev libstdc++-12-dev
+
+      - uses: actions/checkout@v4
+
+      - name: safety.c at 100 % MC/DC, and the report is current
+        run: python3 tools/coverage/mcdc.py --check
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage
+          path: build/coverage/tests.profdata
+
   unit-tests:
     name: Host unit tests
     runs-on: ubuntu-24.04
