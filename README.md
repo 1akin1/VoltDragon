@@ -50,7 +50,8 @@ flowchart TB
 | `tests/integration` | End-to-end mission: plant model driving both nodes in Renode |
 | `tools/gdb` | GDB helpers (fault-frame decoding) |
 | `tools/tflm` | Script that vendors the TensorFlow Lite Micro subset |
-| `docs/` | [Roadmap](docs/roadmap.md), [HLR](docs/requirements/HLR.md), [LLR](docs/requirements/LLR.md), [debugging](docs/debugging.md), [command interface](docs/command-interface.md), [CAN messages](docs/can-messages.md), [telemetry](docs/telemetry.md), [simulation](docs/simulation.md), [RTOS](docs/rtos.md), [autopilot link and safety logic](docs/autopilot-link.md), [Edge AI](docs/edge-ai.md), [vibration model report](docs/vibration-model-report.md), [MISRA deviations](docs/misra-deviations.md) |
+| `tools/trace` | Generator and CI check for the traceability matrix |
+| `docs/` | [Roadmap](docs/roadmap.md), [HLR](docs/requirements/HLR.md), [LLR](docs/requirements/LLR.md), [traceability matrix](docs/traceability.md), [debugging](docs/debugging.md), [command interface](docs/command-interface.md), [CAN messages](docs/can-messages.md), [telemetry](docs/telemetry.md), [simulation](docs/simulation.md), [RTOS](docs/rtos.md), [autopilot link and safety logic](docs/autopilot-link.md), [Edge AI](docs/edge-ai.md), [vibration model report](docs/vibration-model-report.md), [MISRA deviations](docs/misra-deviations.md) |
 
 ## Building
 
@@ -164,6 +165,15 @@ network on TensorFlow Lite Micro ([Edge AI](docs/edge-ai.md)).
 - The alarm travels over CAN and UDP telemetry to the ground station, which
   names the fault and plots the fault score: in the co-simulation, about 1 s
   after the fault (HLR-009 requires 2 s).
+
+Phase 6 in progress: process and documentation.
+
+- The [traceability matrix](docs/traceability.md) links the HLRs to 91 LLRs, the
+  code that implements them and 185 test cases. It is generated from the
+  requirements tables by `python tools/trace/trace.py`, which fails CI if a named
+  file or test no longer exists or the matrix is out of date. Two HLRs have no LLR
+  yet: HLR-015 (ARINC 429, optional) and HLR-020 (MISRA compliance, verified by
+  analysis); both are the next Phase 6 items.
 
 See the [roadmap](docs/roadmap.md).
 

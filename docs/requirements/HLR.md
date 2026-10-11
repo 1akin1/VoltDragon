@@ -4,7 +4,7 @@ Status: **Draft v0.1** · Phase 0
 
 These requirements describe the externally observable behaviour of the VoltDragon
 system. Each one is traced down to Low-Level Requirements (LLR), code and tests in
-the traceability matrix produced in Phase 6, following a DO-178C-style process.
+the [traceability matrix](../traceability.md), following a DO-178C-style process.
 
 **Verification methods:** **T** = Test (Robot Framework / Renode or pytest),
 **A** = Analysis, **I** = Inspection.

@@ -68,7 +68,8 @@ closed loop by `tests/integration/test_mission.py` (the close pass stays 10 m cl
 at 15.999 s, HLR-009: within 2 s), `tests/robot/node_a_ai.robot` and `system_telemetry.robot`.
 
 ## Phase 6 - Process and documentation (week 6)
-- [ ] Produce the HLR -> LLR -> code -> test traceability matrix
+- [x] Produce the HLR -> LLR -> code -> test traceability matrix ([traceability.md](traceability.md)),
+      generated from the requirements by `tools/trace/trace.py` and checked in CI
 - [ ] Produce a MISRA report (cppcheck) and an MC/DC coverage report for one module
 - [ ] Add ARINC 429 output to Node B (optional)
 - [ ] Write the English README, architecture diagram and a short demo video

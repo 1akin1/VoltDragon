@@ -120,3 +120,6 @@ jobs:
 
       - name: Test
         run: pytest
+
+      - name: Traceability matrix is current and complete
+        run: python tools/trace/trace.py --check
