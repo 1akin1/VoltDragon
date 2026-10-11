@@ -12,6 +12,8 @@ $bin_b?=$ORIGIN/../build/debug/firmware/node_b/node_b.elf
 $platform_b?=$ORIGIN/node_b.repl
 
 using sysbus
+# Board models that Renode does not ship, compiled at start-up.
+include $ORIGIN/Arinc429Transmitter.cs
 mach create "node_b"
 machine LoadPlatformDescription $platform_b
 

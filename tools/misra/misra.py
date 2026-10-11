@@ -41,7 +41,8 @@ THIRD_PARTY = "third_party/"
 CATEGORIES = {
     "1.2": "Advisory", "2.1": "Required", "2.2": "Required", "2.7": "Advisory",
     "8.4": "Required", "8.9": "Advisory", "8.11": "Advisory", "8.12": "Required",
-    "9.3": "Required", "10.2": "Required", "10.4": "Required", "10.7": "Required",
+    "9.3": "Required", "10.2": "Required", "10.4": "Required", "10.6": "Required",
+    "10.7": "Required",
     "10.8": "Required", "11.1": "Required", "11.4": "Advisory", "11.5": "Advisory",
     "11.6": "Required", "11.8": "Required", "11.9": "Required", "12.1": "Advisory",
     "12.2": "Required", "12.3": "Advisory", "13.4": "Advisory", "14.2": "Required",

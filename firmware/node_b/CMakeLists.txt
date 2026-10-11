@@ -25,6 +25,7 @@ target_include_directories(lwip SYSTEM PUBLIC
 target_link_libraries(lwip PRIVATE target_arch)
 
 add_executable(node_b
+    src/arinc_tx.c
     src/can_rx.c
     src/commands.c
     src/main.c

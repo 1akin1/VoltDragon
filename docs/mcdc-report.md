@@ -13,7 +13,7 @@ return-to-home, landing and line avoidance (HLR-001 to HLR-006), and is tested b
 ## Configuration
 
 - Compiler: clang 19.1.7 (`-fprofile-instr-generate -fcoverage-mapping -fcoverage-mcdc`), CMake preset `coverage`
-- Tests: the 11 host unit test programs in `tests/unit`, run by ctest
+- Tests: the 12 host unit test programs in `tests/unit`, run by ctest
 - MC/DC as clang measures it: unique-cause MC/DC with masking for short-circuit
   operators, over decisions with two or more conditions (single-condition
   decisions are covered by branch coverage)
@@ -211,6 +211,7 @@ For information: these modules have no MC/DC objective here.
 | File | Lines | Branches | MC/DC conditions |
 |------|-------|----------|------------------|
 | `firmware/common/src/ap_msg.c` | 127/141 (90.1 %) | 55/74 (74.3 %) | 8/26 (30.8 %) |
+| `firmware/common/src/arinc429.c` | 143/143 (100.0 %) | 28/28 (100.0 %) | - |
 | `firmware/common/src/can_msg.c` | 170/173 (98.3 %) | 17/18 (94.4 %) | 2/2 (100.0 %) |
 | `firmware/common/src/cmd_dispatch.c` | 78/78 (100.0 %) | 31/32 (96.9 %) | 8/9 (88.9 %) |
 | `firmware/common/src/cmd_protocol.c` | 294/301 (97.7 %) | 131/140 (93.6 %) | 26/32 (81.2 %) |

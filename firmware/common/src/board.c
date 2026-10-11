@@ -18,6 +18,10 @@
 #define FLASH_SCK_PIN   (5U)
 #define FLASH_MISO_PIN  (6U)
 #define FLASH_MOSI_PIN  (7U)
+#define ARINC_CS_PIN    (12U)   /* PB12 */
+#define ARINC_SCK_PIN   (13U)
+#define ARINC_MISO_PIN  (14U)
+#define ARINC_MOSI_PIN  (15U)
 #define GPIO_AF4_I2C    (4UL)
 #define GPIO_AF5_SPI    (5UL)
 #define GPIO_AF7_USART  (7UL)
@@ -182,4 +186,22 @@ void board_flash_select(bool selected)
 {
     /* BSRR: the low half sets a pin, the high half resets it. */
     GPIOA->BSRR = selected ? (1UL << (FLASH_CS_PIN + 16U)) : (1UL << FLASH_CS_PIN);
+}
+
+void board_arinc_bus_init(void)
+{
+    RCC->AHB1ENR |= RCC_AHB1ENR_GPIOBEN;
+    RCC->APB1ENR |= RCC_APB1ENR_SPI2EN;
+    (void)RCC->APB1ENR;
+
+    board_arinc_select(false);
+    gpio_set_output(GPIOB, ARINC_CS_PIN);
+    gpio_set_alternate(GPIOB, ARINC_SCK_PIN, GPIO_AF5_SPI);
+    gpio_set_alternate(GPIOB, ARINC_MISO_PIN, GPIO_AF5_SPI);
+    gpio_set_alternate(GPIOB, ARINC_MOSI_PIN, GPIO_AF5_SPI);
+}
+
+void board_arinc_select(bool selected)
+{
+    GPIOB->BSRR = selected ? (1UL << (ARINC_CS_PIN + 16U)) : (1UL << ARINC_CS_PIN);
 }

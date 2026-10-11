@@ -3,6 +3,7 @@
 # linked, even though no code references them by name.
 add_library(voltdragon_common OBJECT
     src/ap_msg.c
+    src/arinc429.c
     src/board.c
     src/can.c
     src/can_msg.c

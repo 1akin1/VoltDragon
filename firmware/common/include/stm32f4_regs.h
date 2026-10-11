@@ -126,6 +126,7 @@ _Static_assert(offsetof(rcc_regs_t, CSR) == 0x74U, "RCC layout");
 #define RCC_APB1ENR_USART3EN    (1UL << 18)
 #define RCC_APB1ENR_UART4EN     (1UL << 19)
 #define RCC_APB1ENR_UART5EN     (1UL << 20)
+#define RCC_APB1ENR_SPI2EN      (1UL << 14)
 #define RCC_APB1ENR_I2C1EN      (1UL << 21)
 #define RCC_APB1ENR_CAN1EN      (1UL << 25)
 #define RCC_APB1RSTR_I2C1RST    (1UL << 21)
@@ -428,6 +429,7 @@ typedef struct
 #define ETH_MAC ((eth_mac_regs_t *)0x40028000UL)
 #define ETH_DMA ((eth_dma_regs_t *)0x40029000UL)
 #define SPI1    ((spi_regs_t *)0x40013000UL)
+#define SPI2    ((spi_regs_t *)0x40003800UL)
 #define IWDG    ((iwdg_regs_t *)0x40003000UL)
 
 #endif /* STM32F4_REGS_H */

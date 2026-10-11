@@ -12,7 +12,7 @@ checker runs on every CI build and fails if any finding is open.
   rules and the directives are covered by code review
 - Options: `--std=c11 --platform=unix32` (32-bit `int`, `long` and pointers,
   as on the Cortex-M4), include paths and defines from the debug build
-- Translation units: 46 C files in `firmware/` (the C++ TFLM wrapper and
+- Translation units: 48 C files in `firmware/` (the C++ TFLM wrapper and
   third-party code are out of scope; see the plan)
 
 ## Summary
@@ -20,10 +20,10 @@ checker runs on every CI build and fails if any finding is open.
 | Status | Findings |
 |--------|---------:|
 | **Open** | **0** |
-| Deviation | 181 |
-| Disapplied advisory rule | 250 |
+| Deviation | 191 |
+| Disapplied advisory rule | 254 |
 | Tool false positive | 27 |
-| **Total in project code** | **458** |
+| **Total in project code** | **472** |
 
 Findings located in third-party headers (FreeRTOS, lwIP) are not counted; their
 number depends on the checkout of the submodules, so it is printed by the checker
@@ -37,11 +37,11 @@ but not recorded here.
 | 8.11 | Advisory | 6 | D-003 |
 | 10.4 | Required | 21 | FP-01 |
 | 10.8 | Required | 3 | D-006 |
-| 11.4 | Advisory | 158 | D-002 |
+| 11.4 | Advisory | 168 | D-002 |
 | 11.6 | Required | 1 | D-004 |
 | 11.8 | Required | 1 | FP-03 |
 | 12.1 | Advisory | 3 | FP-02 |
-| 15.5 | Advisory | 238 | Disapplied |
+| 15.5 | Advisory | 242 | Disapplied |
 | 17.1 | Required | 13 | D-001 |
 | 20.10 | Advisory | 1 | FP-04 |
 | 21.1 | Required | 1 | FP-05 |
@@ -51,7 +51,7 @@ but not recorded here.
 | ID | Rules | Findings | Where |
 |----|-------|---------:|-------|
 | D-001 | 17.1 | 13 | `log.c` 13 |
-| D-002 | 11.4 | 158 | `ap_link.c` 4, `board.c` 59, `can.c` 24, `commands.c` 4, `eth.c` 29, `fault.c` 5, `gps.c` 3, `imu.c` 3, `iwdg.c` 7, `mt25q.c` 3, `node_boot.c` 3, `reset_info.c` 4, `startup_stm32f4.c` 3, `systick.c` 6, `uart.c` 1 |
+| D-002 | 11.4 | 168 | `ap_link.c` 4, `arinc_tx.c` 2, `board.c` 67, `can.c` 24, `commands.c` 4, `eth.c` 29, `fault.c` 5, `gps.c` 3, `imu.c` 3, `iwdg.c` 7, `mt25q.c` 3, `node_boot.c` 3, `reset_info.c` 4, `startup_stm32f4.c` 3, `systick.c` 6, `uart.c` 1 |
 | D-003 | 8.11, 18.2, 18.3 | 6 | `startup_stm32f4.c` 6 |
 | D-004 | 11.1, 11.6 | 1 | `fault.c` 1 |
 | D-005 | 1.2, 2.1 | 0 | none reported |
@@ -61,7 +61,7 @@ but not recorded here.
 
 | Rule | Findings | Where |
 |------|---------:|-------|
-| 15.5 | 238 | `ap_msg.c` 9, `can.c` 6, `can_msg.c` 2, `can_rx.c` 16, `can_tx.c` 7, `cmd_dispatch.c` 6, `cmd_protocol.c` 28, `commands.c` 6, `eth.c` 18, `ethernetif.c` 2, `flashlog.c` 12, `flight_mode.c` 19, `gps.c` 1, `health.c` 5, `i2c.c` 13, `imu.c` 4, `log.c` 1, `lsm9ds1.c` 9, `mt25q.c` 10, `nav.c` 3, `net.c` 8, `nmea.c` 25, `node_boot.c` 2, `safety.c` 7, `spi.c` 3, `tasks.c` 1, `telemetry.c` 3, `tlm_msg.c` 2, `uart.c` 6, `vib_alarm.c` 1, `vib_features.c` 3 |
+| 15.5 | 242 | `ap_msg.c` 9, `arinc_tx.c` 4, `can.c` 6, `can_msg.c` 2, `can_rx.c` 16, `can_tx.c` 7, `cmd_dispatch.c` 6, `cmd_protocol.c` 28, `commands.c` 6, `eth.c` 18, `ethernetif.c` 2, `flashlog.c` 12, `flight_mode.c` 19, `gps.c` 1, `health.c` 5, `i2c.c` 13, `imu.c` 4, `log.c` 1, `lsm9ds1.c` 9, `mt25q.c` 10, `nav.c` 3, `net.c` 8, `nmea.c` 25, `node_boot.c` 2, `safety.c` 7, `spi.c` 3, `tasks.c` 1, `telemetry.c` 3, `tlm_msg.c` 2, `uart.c` 6, `vib_alarm.c` 1, `vib_features.c` 3 |
 | 8.9 | 12 | `can_tx.c` 2, `commands.c` 1, `ethernetif.c` 1, `flight_mode.c` 1, `health.c` 1, `lsm9ds1.c` 1, `route.c` 1, `rtos_port.c` 1, `startup_stm32f4.c` 1, `vib_features.c` 2 |
 
 ## Tool false positives

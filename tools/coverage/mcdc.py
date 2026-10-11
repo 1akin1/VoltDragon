@@ -36,15 +36,23 @@ def run(*args: str, **kwargs) -> subprocess.CompletedProcess:
     return subprocess.run(args, cwd=ROOT, check=True, text=True, **kwargs)
 
 
+def run_quietly(*args: str, **kwargs) -> None:
+    """Runs a build step, showing its output only if it fails."""
+    try:
+        run(*args, capture_output=True, **kwargs)
+    except subprocess.CalledProcessError as failure:
+        sys.stderr.write(failure.stdout + failure.stderr)
+        raise SystemExit(f"error: {' '.join(args)} failed") from None
+
+
 def build_and_test() -> list[Path]:
     """Configures, builds and runs the instrumented tests; returns the test executables."""
-    run("cmake", "--preset", "coverage", stdout=subprocess.DEVNULL)
-    run("cmake", "--build", "--preset", "coverage", stdout=subprocess.DEVNULL)
+    run_quietly("cmake", "--preset", "coverage")
+    run_quietly("cmake", "--build", "--preset", "coverage")
     shutil.rmtree(PROFILES, ignore_errors=True)
     PROFILES.mkdir(parents=True)
     env = dict(os.environ, LLVM_PROFILE_FILE=str(PROFILES / "%p.profraw"))
-    run("ctest", "--test-dir", str(BUILD), "--output-on-failure", env=env,
-        stdout=subprocess.DEVNULL)
+    run_quietly("ctest", "--test-dir", str(BUILD), "--output-on-failure", env=env)
     tests = BUILD / "tests/unit"
     return sorted(p for p in tests.glob("test_*") if p.is_file() and os.access(p, os.X_OK))
 

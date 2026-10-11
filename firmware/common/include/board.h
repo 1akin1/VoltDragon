@@ -26,6 +26,9 @@
  * The flight-data flash is on SPI1: PA5 (SCK), PA6 (MISO), PA7 (MOSI), with a
  * software-driven chip select on PA4 (active low). APB2 runs at 16 MHz, so the
  * SPI prescaler /2 gives an 8 MHz clock.
+ *
+ * Node B's ARINC 429 transmitter is on SPI2: PB13 (SCK), PB14 (MISO), PB15 (MOSI),
+ * with a software-driven chip select on PB12 (active low); 16 MHz / 4 = 4 MHz.
  */
 #ifndef BOARD_H
 #define BOARD_H
@@ -59,6 +62,9 @@
 #define BOARD_FLASH_SPI     (SPI1)
 /** SPI1 baud-rate field: 0 selects PCLK2 / 2. */
 #define BOARD_FLASH_SPI_BR  (0U)
+#define BOARD_ARINC_SPI     (SPI2)
+/** SPI2 baud-rate field: 1 selects PCLK1 / 4. */
+#define BOARD_ARINC_SPI_BR  (1U)
 
 /** Pins used for the USART2 debug console. */
 typedef enum
@@ -96,5 +102,11 @@ void board_flash_bus_init(void);
 
 /** Drives the flash chip select: true pulls it low (selected), false releases it. */
 void board_flash_select(bool selected);
+
+/** Enables the clock and configures the pins of Node B's ARINC 429 SPI bus; leaves it deselected. */
+void board_arinc_bus_init(void);
+
+/** Drives the ARINC 429 transmitter's chip select: true pulls it low (selected). */
+void board_arinc_select(bool selected);
 
 #endif /* BOARD_H */

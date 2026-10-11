@@ -9,3 +9,10 @@ phy: Network.EthernetPhysicalLayer @ ethernet 0
     Id2: 0xC131
     AutoNegotiationAdvertisement: 0x01E1
     AutoNegotiationLinkPartnerBasePageAbility: 0x01E1
+
+// ARINC 429 transmitter on SPI2, chip select on PB12 (HLR-015). The model is compiled
+// from renode/Arinc429Transmitter.cs by node_b.resc.
+arinc: SPI.Arinc429Transmitter @ spi2
+
+gpioPortB:
+    12 -> arinc@0

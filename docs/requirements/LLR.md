@@ -7,7 +7,8 @@ statements that can be implemented and tested directly. The
 [traceability matrix](../traceability.md) is generated from these tables by
 `tools/trace/trace.py`, which also checks that every code file and test named
 here exists. In the Test column, backticked names are test cases (Robot, unit or
-pytest), test files, or name patterns with `*` or `...`.
+pytest), test files, or name patterns with `*` or `...`; a pattern that would
+match tests in more than one file is scoped to one, as `test_file.c:pattern`.
 
 ## Start-up and platform
 
@@ -79,9 +80,9 @@ Protocol details: [command-interface.md](../command-interface.md).
 | ID | Requirement | Parent | Code | Test |
 |----|-------------|--------|------|------|
 | LLR-060 | Node B shall receive operator commands on USART3 (PB10/PB11, 115200 baud, 8N1) through an interrupt-driven 256-byte buffer, and shall count bytes lost to UART overruns or a full buffer. | HLR-014 | `board.c`, `uart.c`, `commands.c` | `Should Answer Back To Back Commands In Order` |
-| LLR-061 | A frame shall start at `$` (any `$` restarts assembly) and end at CR or LF. Empty lines shall be ignored. Lines over 80 characters shall be rejected with `LENGTH`. | HLR-014 | `cmd_protocol.c` | Unit: `line_*`; Robot: `Should Resynchronise After Line Noise`, `Should Reject Corrupted Frames` |
+| LLR-061 | A frame shall start at `$` (any `$` restarts assembly) and end at CR or LF. Empty lines shall be ignored. Lines over 80 characters shall be rejected with `LENGTH`. | HLR-014 | `cmd_protocol.c` | Unit: `test_cmd_protocol.c:line_*`; Robot: `Should Resynchronise After Line Noise`, `Should Reject Corrupted Frames` |
 | LLR-062 | A frame shall be rejected with `FRAME`, `CHECKSUM` or `SEQ`, and sequence number 0, if it is malformed, its XOR checksum does not match, or its sequence number is not in 1..65535. | HLR-013, HLR-014 | `cmd_protocol.c`, `cmd_dispatch.c` | Unit: `parse_rejects_*`, `parse_accepts_*`, `parse_keeps_sequence_for_verb_and_argument_errors`, `parse_u32_handles_limits`, `checksum_is_xor_of_bytes`; Robot: `Should Reject Corrupted Frames` |
-| LLR-063 | A valid frame with an unknown verb shall be rejected with `UNKNOWN`; a wrong argument count or an argument value refused by the command shall be rejected with `ARGS`. Rejected commands shall have no effect. | HLR-014 | `cmd_dispatch.c`, `commands.c` | Unit: `rejects_*`, `refused_request_gets_a_clean_nak`; Robot: `Should Reject Unknown Commands`, `Should Reject Invalid Arguments` |
+| LLR-063 | A valid frame with an unknown verb shall be rejected with `UNKNOWN`; a wrong argument count or an argument value refused by the command shall be rejected with `ARGS`. Rejected commands shall have no effect. | HLR-014 | `cmd_dispatch.c`, `commands.c` | Unit: `test_cmd_dispatch.c:rejects_*`, `refused_request_gets_a_clean_nak`; Robot: `Should Reject Unknown Commands`, `Should Reject Invalid Arguments` |
 | LLR-064 | Every complete line shall receive exactly one response, `ACK` or `NAK`, carrying the request's sequence number when it can be trusted and a valid checksum. | HLR-014 | `cmd_dispatch.c`, `commands.c` | Unit: `acknowledges_known_command`, `handler_adds_result_fields`, `response_has_valid_checksum`, `response_is_truncated_safely`; Robot: all `node_b_commands.robot` tests (responses are matched including their checksum) |
 | LLR-065 | A request identical to the previous one (same sequence number and content) shall be answered with the previous response without executing the command again. A different request reusing the sequence number shall be executed. | HLR-014 | `cmd_dispatch.c` | Unit: `replays_*`, `different_request_with_same_sequence_is_executed`, `new_sequence_number_executes_again`, `corrupt_frame_does_not_disturb_replay_cache`; Robot: `Should Replay The Response To A Retransmitted Command` |
 | LLR-066 | Node B shall support `PING`, `VERSION`, `STATUS`, `CAN`, `TLM_RATE` (10 to 50 Hz, default 10 Hz) and `MODE` (LLR-126). | HLR-012, HLR-014 | `commands.c` | `Should Answer Ping And Version`, `Should Report Status Counters`, `Should Set And Query The Telemetry Rate` |
@@ -189,3 +190,14 @@ Design: [simulation.md](../simulation.md) describes the scenario these are verif
 | ID | Requirement | Parent | Code | Test |
 |----|-------------|--------|------|------|
 | LLR-150 | The C sources of both nodes shall have no open finding from cppcheck's MISRA C:2012 addon: each finding shall be covered by a disapplied advisory rule, a documented deviation or a documented false positive of the tool, as defined in [misra-deviations.md](../misra-deviations.md). | HLR-020 | All C files in firmware/ | Analysis: tools/misra/misra.py --check in CI (docs/misra-report.md) |
+
+## ARINC 429 output (Node B)
+
+Words, labels and the transmitter: [arinc429.md](../arinc429.md).
+
+| ID | Requirement | Parent | Code | Test |
+|----|-------------|--------|------|------|
+| LLR-160 | An ARINC 429 word shall carry the label in bits 1-8 most significant bit first, the SDI in bits 9-10, the data in bits 11-29, the SSM in bits 30-31 and odd parity in bit 32. BNR data shall be the value in units of its least significant bit as a left-aligned two's complement number with the sign in bit 29, saturated to the range. | HLR-015 | `arinc429.c` | Unit: `heading_of_90_degrees`, `fields_decode_back`, `every_word_has_odd_parity`, `bnr_round_trips_and_saturates`; Robot: `Should Carry Altitude Heading And Line Distance` (independent decoder) |
+| LLR-161 | Every 50 ms Node B shall send three BNR words: label 203, the GPS altitude in feet (17 bits, 1 ft); label 314, the true heading reduced to ±180 degrees (15 bits); label 251, the distance to the nearest conductor (16 bits, 0.125 m), each rounded to the nearest least significant bit. | HLR-015 | `arinc_tx.c`, `arinc429.c` | Unit: `heading_of_270_degrees_is_minus_90`, `heading_wraps_to_plus_minus_180`, `altitude_in_feet`, `line_distance_in_eighths_of_a_metre`; Robot: `Should Send Three Words At 20 Hz`, `Should Carry Altitude Heading And Line Distance` |
+| LLR-162 | Each word's SSM shall be failure warning when Node A's data is older than 100 ms, no computed data when Node A has no value for it (no fresh GPS fix, no heading source, no distance), and normal operation otherwise; words that are not normal shall carry zero data. | HLR-010, HLR-015 | `arinc_tx.c`, `arinc429.c` | Unit: `no_data_words_carry_zero_and_their_status`; Robot: `Should Report No Computed Data Without A Fix`, `Should Report A Failure Warning Without Node A` |
+| LLR-163 | Node B shall drive the ARINC 429 transmitter on SPI2 (PB13-PB15, 4 MHz) with a software chip select on PB12, reset it and check its identifier at start-up, and without it log the cause and run without the output. It shall log the words sent, SPI errors and each label's SSM once per second. | HLR-015 | `board.c`, `arinc_tx.c` | Robot: `Should Find The Transmitter At Start`, `Should Keep Running Without A Transmitter`, `Should Send Three Words At 20 Hz` |

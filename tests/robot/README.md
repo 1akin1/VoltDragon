@@ -19,6 +19,7 @@ renode-test -r build/robot tests/robot/*.robot
 | `node_a_rtos.robot` | FreeRTOS tasks, stack margins, priority inversion with a semaphore and its fix with a mutex, watchdog recovery from a stalled task (HLR-016) |
 | `node_a_ai.robot` | Phase 5: the INT8 vibration classifier on TensorFlow Lite Micro: model loading, nominal classification, a damaged propeller's signature raising the alarm within 2 s and clearing it, alarm records in the flight recorder (HLR-009, HLR-018) |
 | `system_safety.robot` | Phase 4 milestone: proximity warning and avoidance, return home on link loss and on low battery, landing on critical battery, operator mode requests with and without override, LAND being final; driven open loop through the GPS, autopilot and command UARTs (HLR-001 to HLR-006) |
+| `system_arinc.robot` | Phase 6: ARINC 429 output from Node B: transmitter detection, three words at 20 Hz, altitude, heading and line distance decoded by an independent bus monitor, SSM for missing data and for a silent Node A, running without a transmitter (HLR-015) |
 
 The co-simulated flights, with the plant model driving both nodes and flying
 on Node A's orders, are a pytest suite in `tests/integration`: the close pass

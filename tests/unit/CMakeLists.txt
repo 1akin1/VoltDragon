@@ -39,6 +39,8 @@ add_unit_test(test_nmea
     ${FIRMWARE_COMMON}/src/cmd_protocol.c)
 add_unit_test(test_flight_mode
     ${FIRMWARE_COMMON}/src/flight_mode.c)
+add_unit_test(test_arinc429
+    ${FIRMWARE_COMMON}/src/arinc429.c)
 add_unit_test(test_ap_msg
     ${FIRMWARE_COMMON}/src/ap_msg.c
     ${FIRMWARE_COMMON}/src/flight_mode.c

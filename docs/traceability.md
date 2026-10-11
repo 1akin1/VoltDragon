@@ -14,12 +14,12 @@ not exist. CI runs `python tools/trace/trace.py --check` to keep it current.
 | Item | Count |
 |------|------:|
 | High-level requirements | 20 |
-| HLRs refined by at least one LLR | 19 |
-| Low-level requirements | 93 |
+| HLRs refined by at least one LLR | 20 |
+| Low-level requirements | 97 |
 | Derived LLRs (no parent HLR) | 13 |
-| LLRs verified by at least one named test | 83 |
-| Test cases indexed (Robot / unit / pytest) | 241 (70 Robot, 95 Unit, 76 pytest) |
-| Test cases traced to an LLR | 202 |
+| LLRs verified by at least one named test | 87 |
+| Test cases indexed (Robot / unit / pytest) | 256 (76 Robot, 104 Unit, 76 pytest) |
+| Test cases traced to an LLR | 217 |
 
 ## HLR to LLR
 
@@ -34,21 +34,17 @@ not exist. CI runs `python tools/trace/trace.py --check` to keep it current.
 | HLR-007 | Node A shall sample the IMU at 100 Hz or faster. | T, A | [LLR-043](#llr-043), [LLR-044](#llr-044), [LLR-055](#llr-055), [LLR-110](#llr-110) | 4 Robot |
 | HLR-008 | Node A shall detect magnetometer readings that are corrupted by the power line's magnetic field and shall stop using magnetometer heading while the corruption lasts. | T | [LLR-093](#llr-093), [LLR-094](#llr-094), [LLR-095](#llr-095), [LLR-096](#llr-096) | 3 Robot, 4 pytest |
 | HLR-009 | Node A shall detect motor/propeller vibration faults by on-board inference and shall report a `VIBRATION_FAULT` alarm to the ground station within 2 s of fault onset. | T | [LLR-083](#llr-083), [LLR-102](#llr-102), [LLR-110](#llr-110), [LLR-140](#llr-140), [LLR-141](#llr-141), [LLR-142](#llr-142), [LLR-143](#llr-143), [LLR-144](#llr-144), [LLR-145](#llr-145), [LLR-146](#llr-146) | 12 Robot, 12 Unit, 15 pytest |
-| HLR-010 | Each sensor sample shall be range- and staleness-checked, and invalid data shall be flagged and excluded from control. | T | [LLR-004](#llr-004), [LLR-041](#llr-041), [LLR-042](#llr-042), [LLR-045](#llr-045), [LLR-074](#llr-074), [LLR-076](#llr-076), [LLR-090](#llr-090), [LLR-091](#llr-091), [LLR-092](#llr-092), [LLR-132](#llr-132) | 11 Robot, 11 Unit, 1 pytest |
+| HLR-010 | Each sensor sample shall be range- and staleness-checked, and invalid data shall be flagged and excluded from control. | T | [LLR-004](#llr-004), [LLR-041](#llr-041), [LLR-042](#llr-042), [LLR-045](#llr-045), [LLR-074](#llr-074), [LLR-076](#llr-076), [LLR-090](#llr-090), [LLR-091](#llr-091), [LLR-092](#llr-092), [LLR-132](#llr-132), [LLR-162](#llr-162) | 13 Robot, 12 Unit, 1 pytest |
 | HLR-011 | Node A shall send sensor and status data to Node B over CAN at 50 Hz or faster. | T | [LLR-070](#llr-070), [LLR-072](#llr-072), [LLR-110](#llr-110) | 9 Robot, 1 pytest |
 | HLR-012 | Node B shall forward telemetry to the ground station as UDP packets at 10 Hz or faster. | T | [LLR-066](#llr-066), [LLR-080](#llr-080), [LLR-081](#llr-081), [LLR-082](#llr-082), [LLR-083](#llr-083), [LLR-125](#llr-125) | 13 Robot, 1 Unit, 1 pytest |
 | HLR-013 | Every CAN frame and telemetry packet shall carry a sequence counter and a CRC, and the receiver shall discard corrupted frames and count lost ones. | T | [LLR-062](#llr-062), [LLR-071](#llr-071), [LLR-073](#llr-073), [LLR-074](#llr-074), [LLR-075](#llr-075), [LLR-078](#llr-078), [LLR-084](#llr-084), [LLR-100](#llr-100) | 6 Robot, 31 Unit, 6 pytest |
-| HLR-014 | Node B shall accept operator commands over its UART command interface and over UDP, and shall acknowledge or reject each command. | T | [LLR-060](#llr-060), [LLR-061](#llr-061), [LLR-062](#llr-062), [LLR-063](#llr-063), [LLR-064](#llr-064), [LLR-065](#llr-065), [LLR-066](#llr-066), [LLR-076](#llr-076), [LLR-085](#llr-085), [LLR-126](#llr-126) | 18 Robot, 36 Unit |
-| HLR-015 | Node B may output selected parameters (altitude, heading, line distance) as ARINC 429 words. *(Optional)* | T | **none** | - |
+| HLR-014 | Node B shall accept operator commands over its UART command interface and over UDP, and shall acknowledge or reject each command. | T | [LLR-060](#llr-060), [LLR-061](#llr-061), [LLR-062](#llr-062), [LLR-063](#llr-063), [LLR-064](#llr-064), [LLR-065](#llr-065), [LLR-066](#llr-066), [LLR-076](#llr-076), [LLR-085](#llr-085), [LLR-126](#llr-126) | 18 Robot, 30 Unit |
+| HLR-015 | Node B may output selected parameters (altitude, heading, line distance) as ARINC 429 words. *(Optional)* | T | [LLR-160](#llr-160), [LLR-161](#llr-161), [LLR-162](#llr-162), [LLR-163](#llr-163) | 6 Robot, 9 Unit |
 | HLR-016 | Each node shall be supervised by a hardware watchdog and shall recover to a safe state after a watchdog reset. | T | [LLR-010](#llr-010), [LLR-011](#llr-011), [LLR-022](#llr-022), [LLR-031](#llr-031), [LLR-112](#llr-112), [LLR-113](#llr-113), [LLR-114](#llr-114), [LLR-115](#llr-115) | 8 Robot |
 | HLR-017 | Each node shall keep a reset counter and the last fault cause across resets, and shall report them in telemetry at start-up. | T | [LLR-003](#llr-003), [LLR-012](#llr-012), [LLR-013](#llr-013), [LLR-014](#llr-014), [LLR-020](#llr-020), [LLR-021](#llr-021), [LLR-023](#llr-023), [LLR-083](#llr-083), [LLR-115](#llr-115) | 12 Robot |
 | HLR-018 | Node A shall record flight data, mode changes and alarms to SPI flash at 10 Hz or faster. | T | [LLR-051](#llr-051), [LLR-052](#llr-052), [LLR-053](#llr-053), [LLR-054](#llr-054), [LLR-055](#llr-055), [LLR-056](#llr-056), [LLR-057](#llr-057), [LLR-058](#llr-058), [LLR-144](#llr-144) | 8 Robot, 1 Unit |
 | HLR-019 | The ground station shall show the UAV position on a map, live telemetry plots and active alarms. | I, T | [LLR-100](#llr-100), [LLR-101](#llr-101), [LLR-102](#llr-102) | 17 pytest |
 | HLR-020 | All flight software shall comply with the project's MISRA C:2012 subset, and every deviation shall be documented. | A | [LLR-150](#llr-150) | - |
-
-HLRs without an LLR:
-
-- **HLR-015** (Communication): Node B may output selected parameters (altitude, heading, line distance) as ARINC 429 words. *(Optional)*
 
 ## LLR to code and tests
 
@@ -259,7 +255,7 @@ HLRs without an LLR:
 
 - Code: [`cmd_dispatch.c`](../firmware/common/src/cmd_dispatch.c), [`commands.c`](../firmware/node_b/src/commands.c)
 - Robot: [Should Reject Unknown Commands](../tests/robot/node_b_commands.robot#L97), [Should Reject Invalid Arguments](../tests/robot/node_b_commands.robot#L88)
-- Unit: [rejects_bad_status](../tests/unit/test_ap_msg.c#L53), [rejects_unknown_verb](../tests/unit/test_cmd_dispatch.c#L101), [rejects_overlong_verb_without_echoing_it](../tests/unit/test_cmd_dispatch.c#L110), [rejects_wrong_argument_count](../tests/unit/test_cmd_dispatch.c#L117), [rejects_argument_refused_by_handler](../tests/unit/test_cmd_dispatch.c#L126), [rejects_corrupt_frames_with_unknown_sequence](../tests/unit/test_cmd_dispatch.c#L141), [rejects_out_of_range_values](../tests/unit/test_flight_mode.c#L97), [rejects_bad_sentences_without_changing_the_fix](../tests/unit/test_nmea.c#L87), [rejects_an_unknown_mode](../tests/unit/test_safety.c#L385), [rejects_any_single_bit_error](../tests/unit/test_tlm_msg.c#L107), [rejects_wrong_length](../tests/unit/test_tlm_msg.c#L124), [refused_request_gets_a_clean_nak](../tests/unit/test_cmd_dispatch.c#L133)
+- Unit: [rejects_unknown_verb](../tests/unit/test_cmd_dispatch.c#L101), [rejects_overlong_verb_without_echoing_it](../tests/unit/test_cmd_dispatch.c#L110), [rejects_wrong_argument_count](../tests/unit/test_cmd_dispatch.c#L117), [rejects_argument_refused_by_handler](../tests/unit/test_cmd_dispatch.c#L126), [rejects_corrupt_frames_with_unknown_sequence](../tests/unit/test_cmd_dispatch.c#L141), [refused_request_gets_a_clean_nak](../tests/unit/test_cmd_dispatch.c#L133)
 
 <a id="llr-064"></a>**LLR-064** (HLR-014): Every complete line shall receive exactly one response, `ACK` or `NAK`, carrying the request's sequence number when it can be trusted and a valid checksum.
 
@@ -598,6 +594,32 @@ HLRs without an LLR:
 
 - Code: -
 - Other: Analysis: tools/misra/misra.py --check in CI (docs/misra-report.md)
+
+
+### ARINC 429 output (Node B)
+
+<a id="llr-160"></a>**LLR-160** (HLR-015): An ARINC 429 word shall carry the label in bits 1-8 most significant bit first, the SDI in bits 9-10, the data in bits 11-29, the SSM in bits 30-31 and odd parity in bit 32. BNR data shall be the value in units of its least significant bit as a left-aligned two's complement number with the sign in bit 29, saturated to the range.
+
+- Code: [`arinc429.c`](../firmware/common/src/arinc429.c)
+- Robot: [Should Carry Altitude Heading And Line Distance](../tests/robot/system_arinc.robot#L97)
+- Unit: [heading_of_90_degrees](../tests/unit/test_arinc429.c#L16), [fields_decode_back](../tests/unit/test_arinc429.c#L91), [every_word_has_odd_parity](../tests/unit/test_arinc429.c#L105), [bnr_round_trips_and_saturates](../tests/unit/test_arinc429.c#L119)
+
+<a id="llr-161"></a>**LLR-161** (HLR-015): Every 50 ms Node B shall send three BNR words: label 203, the GPS altitude in feet (17 bits, 1 ft); label 314, the true heading reduced to ±180 degrees (15 bits); label 251, the distance to the nearest conductor (16 bits, 0.125 m), each rounded to the nearest least significant bit.
+
+- Code: [`arinc_tx.c`](../firmware/node_b/src/arinc_tx.c), [`arinc429.c`](../firmware/common/src/arinc429.c)
+- Robot: [Should Send Three Words At 20 Hz](../tests/robot/system_arinc.robot#L92), [Should Carry Altitude Heading And Line Distance](../tests/robot/system_arinc.robot#L97)
+- Unit: [heading_of_270_degrees_is_minus_90](../tests/unit/test_arinc429.c#L27), [heading_wraps_to_plus_minus_180](../tests/unit/test_arinc429.c#L38), [altitude_in_feet](../tests/unit/test_arinc429.c#L53), [line_distance_in_eighths_of_a_metre](../tests/unit/test_arinc429.c#L66)
+
+<a id="llr-162"></a>**LLR-162** (HLR-010, HLR-015): Each word's SSM shall be failure warning when Node A's data is older than 100 ms, no computed data when Node A has no value for it (no fresh GPS fix, no heading source, no distance), and normal operation otherwise; words that are not normal shall carry zero data.
+
+- Code: [`arinc_tx.c`](../firmware/node_b/src/arinc_tx.c), [`arinc429.c`](../firmware/common/src/arinc429.c)
+- Robot: [Should Report No Computed Data Without A Fix](../tests/robot/system_arinc.robot#L108), [Should Report A Failure Warning Without Node A](../tests/robot/system_arinc.robot#L116)
+- Unit: [no_data_words_carry_zero_and_their_status](../tests/unit/test_arinc429.c#L80)
+
+<a id="llr-163"></a>**LLR-163** (HLR-015): Node B shall drive the ARINC 429 transmitter on SPI2 (PB13-PB15, 4 MHz) with a software chip select on PB12, reset it and check its identifier at start-up, and without it log the cause and run without the output. It shall log the words sent, SPI errors and each label's SSM once per second.
+
+- Code: [`board.c`](../firmware/common/src/board.c), [`arinc_tx.c`](../firmware/node_b/src/arinc_tx.c)
+- Robot: [Should Find The Transmitter At Start](../tests/robot/system_arinc.robot#L87), [Should Keep Running Without A Transmitter](../tests/robot/system_arinc.robot#L121), [Should Send Three Words At 20 Hz](../tests/robot/system_arinc.robot#L92)
 
 ## Derived requirements
 

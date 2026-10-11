@@ -3,12 +3,13 @@
  * @brief Node B - gateway (CAN -> UDP telemetry, UART and UDP command interface).
  *
  * Bare-metal super-loop: boots, receives Node A's CAN messages, sends UDP
- * telemetry to the ground station, serves operator commands on USART3 and
- * UDP, kicks the watchdog and prints a heartbeat with CAN, network and
- * telemetry reports once per second.
+ * telemetry to the ground station and ARINC 429 words to the avionics bus,
+ * serves operator commands on USART3 and UDP, kicks the watchdog and prints a
+ * heartbeat with CAN, network, telemetry and ARINC reports once per second.
  */
 #include <stdint.h>
 
+#include "arinc_tx.h"
 #include "can_rx.h"
 #include "commands.h"
 #include "iwdg.h"
@@ -27,6 +28,7 @@ int main(void)
     commands_init();
     (void)can_rx_init();
     (void)net_init(commands_handle_datagram);
+    (void)arinc_tx_init();
 
     uint32_t last_heartbeat_ms = systick_now_ms();
     uint32_t heartbeat_count = 0U;
@@ -41,6 +43,7 @@ int main(void)
         commands_poll();
         net_poll(now_ms);
         telemetry_poll(now_ms);
+        arinc_tx_poll(now_ms);
 
         if ((now_ms - last_heartbeat_ms) >= HEARTBEAT_PERIOD_MS)
         {
@@ -50,6 +53,7 @@ int main(void)
             can_rx_report(now_ms);
             net_report();
             telemetry_report();
+            arinc_tx_report();
             commands_report();
         }
 

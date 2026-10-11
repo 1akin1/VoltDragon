@@ -122,17 +122,23 @@ class Repository:
         return paths
 
     def find_tests(self, token: str) -> list[Test]:
-        """Resolve a test reference: a test file, a test name, or a name pattern."""
+        """Resolve a test reference: a test file, a test name, or a name pattern, which
+        may be scoped to one file as "test_file.c:pattern"."""
+        scoped = re.fullmatch(r"(test_\w+)\.(?:c|cc|py|robot):(.+)", token)
+        tests = self.tests
+        if scoped:
+            tests = [t for t in self.tests if t.path.stem == scoped.group(1)]
+            token = scoped.group(2)
         stem = token.removesuffix(".robot").removesuffix(".py")
         stem = stem.removesuffix(".cc").removesuffix(".c")
-        if stem != token or stem.startswith("test_"):
-            by_file = [t for t in self.tests if t.path.stem == stem]
+        if not scoped and (stem != token or stem.startswith("test_")):
+            by_file = [t for t in tests if t.path.stem == stem]
             if by_file:
                 return by_file
         pattern = token.replace("...", "*")
         if "*" in pattern:
-            return [t for t in self.tests if fnmatch.fnmatchcase(t.name, pattern)]
-        return [t for t in self.tests if t.name == token]
+            return [t for t in tests if fnmatch.fnmatchcase(t.name, pattern)]
+        return [t for t in tests if t.name == token]
 
 
 def table_rows(path: Path) -> list[tuple[str, list[str]]]:
@@ -191,6 +197,12 @@ def load(repo: Repository) -> tuple[list[Hlr], list[Llr], list[str]]:
             tests = repo.find_tests(token)
             if not tests:
                 errors.append(f"{ident}: test `{token}` not found")
+            files = {t.path.name for t in tests}
+            if ("*" in token or "..." in token) and len(files) > 1 and ":" not in token:
+                errors.append(
+                    f"{ident}: pattern `{token}` matches tests in {', '.join(sorted(files))}; "
+                    "scope it to one file as `test_file.c:pattern`"
+                )
             llr.tests += [t for t in tests if t not in llr.tests]
         plain = re.sub(r"`[^`]+`", "", test_cell)
         if ALL_ROBOT in plain:

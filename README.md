@@ -19,7 +19,7 @@ flowchart TB
     subgraph renode["Renode emulator"]
         direction LR
         a["<b>Node A: sensing and control</b><br/>FreeRTOS, I2C IMU, SPI flash log<br/>safe distance and return-to-home logic<br/>TFLite Micro vibration anomaly detection"]
-        b["<b>Node B: gateway</b><br/>CAN to UDP telemetry (lwIP)<br/>ARINC 429 output (optional)<br/>UART command interface"]
+        b["<b>Node B: gateway</b><br/>CAN to UDP telemetry (lwIP)<br/>ARINC 429 output (SPI transmitter)<br/>UART command interface"]
         a -- CAN --> b
     end
     gs["<b>Ground station (Python, Linux)</b><br/>map, telemetry plots, alarms<br/>command uplink, Wireshark analysis"]
@@ -53,7 +53,7 @@ flowchart TB
 | `tools/trace` | Generator and CI check for the traceability matrix |
 | `tools/misra` | MISRA C:2012 check (cppcheck) and report generator |
 | `tools/coverage` | MC/DC coverage measurement (clang) and report generator |
-| `docs/` | [Roadmap](docs/roadmap.md), [HLR](docs/requirements/HLR.md), [LLR](docs/requirements/LLR.md), [traceability matrix](docs/traceability.md), [debugging](docs/debugging.md), [command interface](docs/command-interface.md), [CAN messages](docs/can-messages.md), [telemetry](docs/telemetry.md), [simulation](docs/simulation.md), [RTOS](docs/rtos.md), [autopilot link and safety logic](docs/autopilot-link.md), [Edge AI](docs/edge-ai.md), [vibration model report](docs/vibration-model-report.md), [MISRA compliance plan](docs/misra-deviations.md), [MISRA report](docs/misra-report.md), [MC/DC report](docs/mcdc-report.md) |
+| `docs/` | [Roadmap](docs/roadmap.md), [HLR](docs/requirements/HLR.md), [LLR](docs/requirements/LLR.md), [traceability matrix](docs/traceability.md), [debugging](docs/debugging.md), [command interface](docs/command-interface.md), [CAN messages](docs/can-messages.md), [telemetry](docs/telemetry.md), [simulation](docs/simulation.md), [RTOS](docs/rtos.md), [autopilot link and safety logic](docs/autopilot-link.md), [Edge AI](docs/edge-ai.md), [vibration model report](docs/vibration-model-report.md), [MISRA compliance plan](docs/misra-deviations.md), [MISRA report](docs/misra-report.md), [MC/DC report](docs/mcdc-report.md), [ARINC 429](docs/arinc429.md) |
 
 ## Building
 
@@ -176,11 +176,10 @@ network on TensorFlow Lite Micro ([Edge AI](docs/edge-ai.md)).
 
 Phase 6 in progress: process and documentation.
 
-- The [traceability matrix](docs/traceability.md) links the HLRs to 93 LLRs, the
-  code that implements them and 202 test cases. It is generated from the
+- The [traceability matrix](docs/traceability.md) links all 20 HLRs to 97 LLRs, the
+  code that implements them and 217 test cases. It is generated from the
   requirements tables by `python tools/trace/trace.py`, which fails CI if a named
-  file or test no longer exists or the matrix is out of date. Only the optional
-  HLR-015 (ARINC 429) has no LLR yet.
+  file or test no longer exists or the matrix is out of date.
 - The C flight software has no open finding from cppcheck's MISRA C:2012 addon
   ([report](docs/misra-report.md)). The [compliance plan](docs/misra-deviations.md)
   disapplies two advisory rules and records six deviations and five false positives
@@ -188,6 +187,10 @@ Phase 6 in progress: process and documentation.
 - Node A's safety logic (`safety.c`) reaches 100 % statement, decision and MC/DC
   coverage (24 of 24 conditions) in a new host test with test doubles for its inputs
   ([MC/DC report](docs/mcdc-report.md)); measured with clang 19 and checked in CI.
+- Node B sends altitude, true heading and the distance to the line as ARINC 429 BNR
+  words at 20 Hz, through a transmitter on SPI2 ([ARINC 429](docs/arinc429.md)). The
+  transmitter is a Renode model whose bus monitor decodes every word on its own, so
+  the system tests check the encoding against an independent decoder.
 
 See the [roadmap](docs/roadmap.md).
 
