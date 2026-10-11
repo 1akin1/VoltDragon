@@ -1,23 +1,55 @@
 # VoltDragon
 
 [![CI](https://github.com/1akin1/VoltDragon/actions/workflows/ci.yml/badge.svg)](https://github.com/1akin1/VoltDragon/actions/workflows/ci.yml)
+[![MISRA C:2012](https://img.shields.io/badge/MISRA%20C%3A2012-0%20open%20findings-brightgreen)](docs/misra-report.md)
+[![MC/DC](https://img.shields.io/badge/MC%2FDC%20safety%20logic-100%25-brightgreen)](docs/mcdc-report.md)
+[![Traceability](https://img.shields.io/badge/requirements-20%20HLR%20%E2%86%92%2097%20LLR%20%E2%86%92%20217%20tests-blue)](docs/traceability.md)
 
-Avionics software for a **power-line inspection UAV**, built and verified
-**entirely in simulation**.
+Avionics software for a **power-line inspection drone**, written from the reset vector
+up and verified **entirely in simulation**: no hardware needed to build, run or test it.
 
 Two **STM32F407 (Cortex-M4F)** nodes run their real firmware in the
 [Renode](https://renode.io) emulator. A Python **plant model** flies the vehicle
-along a high-voltage line, with wind, sensor noise, magnetic interference from the
-line and rotor faults, and closes the loop with the firmware. A Python **ground
-station** shows the flight and sends commands. The work follows a
-**DO-178C-style process**: requirements traced to code and tests, MISRA C, and
-MC/DC coverage of the safety logic, all checked in CI.
+along a high-voltage line, with wind, sensor noise, the line's magnetic field and
+rotor faults, and closes the loop with the firmware. A Python **ground station**
+shows the flight and sends commands. The work follows a **DO-178C-style process**:
+requirements traced to code and tests, MISRA C, and MC/DC coverage of the safety
+logic, all enforced in CI.
 
-**Topics:** embedded C · ARM Cortex-M · startup code and linker scripts · I2C / SPI /
-UART / CAN / Ethernet drivers · FreeRTOS · lwIP · ARINC 429 · Edge AI (TensorFlow Lite
-Micro, INT8) · Renode · Robot Framework · DO-178C-style traceability · MISRA C:2012 · MC/DC
+![A co-simulated flight: the autopilot ignores the avoidance order, the vehicle comes within 4.5 m of a conductor, Node A detects the corrupted magnetometer and switches to the GPS course](docs/images/no-avoidance.gif)
 
-![Ground station during the inspection mission](docs/images/ground_station.png)
+*A co-simulated flight, replayed from the telemetry Node B sent (3x speed). The
+autopilot has been made to ignore Node A's avoidance order: the vehicle comes
+within 4.5 m of a conductor, the line's field corrupts the magnetometer (red track),
+and Node A switches its heading to the GPS course (purple) until the field is clean.*
+
+## At a glance
+
+- **Two firmware images, about 10 400 lines of first-party C**: startup code, linker
+  script, register-level drivers for I2C, SPI, UART, CAN and Ethernet, FreeRTOS on one
+  node and a bare-metal super-loop on the other.
+- **Safety logic** that keeps the vehicle 10 m from the line, returns home on link
+  loss or low battery and lands on critical battery, with **100 % MC/DC** coverage.
+- **Edge AI on the MCU**: an INT8 neural network on TensorFlow Lite Micro, in a
+  2 KB arena, detects propeller and bearing faults.
+- **Avionics buses**: CAN with end-to-end CRCs, UDP telemetry through lwIP on a
+  first-party Ethernet driver, and ARINC 429.
+- **Verified at every level in CI**: 12 host unit-test programs, MC/DC measurement,
+  MISRA analysis, 76 system tests on the emulated hardware and 21 closed-loop
+  co-simulated flights, plus a generated HLR → LLR → code → test traceability matrix.
+
+## See it fly
+
+Each clip is a real co-simulated flight, rendered from Node B's telemetry by
+`tools/demo/make_clips.sh` ([demo plan](docs/demo.md)). Click a clip to see it full size.
+
+| Close pass: avoidance (HLR-001, HLR-002) | Damaged propeller: Edge AI (HLR-009) |
+|:---:|:---:|
+| [![Close pass](docs/images/close-pass.gif)](docs/images/close-pass.gif) | [![Damaged propeller](docs/images/prop-damage.gif)](docs/images/prop-damage.gif) |
+| Planned at 4 m from a conductor; below 12 m Node A orders the autopilot to keep 15 m, and the vehicle never gets within 10 m. | A propeller is damaged at 15 s; the on-board classifier's fault score jumps and the alarm reaches the ground station about 1 s later. |
+| **Ground link lost (HLR-003)** | **Battery failsafes (HLR-004)** |
+| [![Link loss](docs/images/link-loss.gif)](docs/images/link-loss.gif) | [![Battery](docs/images/battery.gif)](docs/images/battery.gif) |
+| The ground station's heartbeat stops at 12 s; 3 s later Node A returns the vehicle home. | Below 20 % the vehicle returns home, below 10 % it lands. One vibration window spikes as the landing starts; the 3-of-4 vote keeps the alarm off. |
 
 ## What it does
 
@@ -53,6 +85,52 @@ Measured in the co-simulation and checked by the tests on every commit:
 | Test cases traced to a requirement | 217 |
 | Open MISRA C:2012 findings | 0 |
 | MC/DC of the safety logic (`safety.c`) | 24 / 24 conditions |
+
+## Where to look
+
+For a quick review of the code, these files show the most:
+
+| File | Why |
+|------|-----|
+| [`startup_stm32f4.c`](firmware/common/src/startup_stm32f4.c), [`stm32f407vg.ld`](firmware/common/linker/stm32f407vg.ld) | Reset handler, vector table and memory layout, including a `.noinit` reset record |
+| [`fault.c`](firmware/common/src/fault.c) | HardFault entry in assembly, stacked-frame capture and CFSR decoding, kept across the reset |
+| [`safety.c`](firmware/node_a/src/safety.c), [`test_safety.c`](tests/unit/test_safety.c) | The safety logic and the test set that gives it 100 % MC/DC |
+| [`tasks.c`](firmware/node_a/src/tasks.c) | FreeRTOS tasks, watchdog supervision, the priority-inversion demonstration |
+| [`flashlog.c`](firmware/node_a/src/flashlog.c) | A flight data recorder that never makes a task wait for the flash |
+| [`eth.c`](firmware/node_b/src/net/eth.c) | Ethernet MAC and DMA descriptor driver underneath lwIP |
+| [`arinc429.c`](firmware/common/src/arinc429.c), [`Arinc429Transmitter.cs`](renode/Arinc429Transmitter.cs) | ARINC 429 encoding, and the Renode model that decodes it independently |
+| [`vib_features.c`](firmware/node_a/src/vib_features.c) | Fixed-size DFT features for the classifier, matching the Python reference |
+| [`cosim.py`](sim/cosim.py) | Lockstep co-simulation of the plant model and both nodes |
+| [`trace.py`](tools/trace/trace.py), [`misra.py`](tools/misra/misra.py), [`mcdc.py`](tools/coverage/mcdc.py) | The process checks CI runs on every commit |
+
+## Problems worth mentioning
+
+Things the project ran into, and how they were found and fixed:
+
+- **Priority inversion, reproduced on purpose.** With a plain semaphore on the
+  recorder, a medium-priority task kept the lock holder from running and
+  ControlTask waited up to 85 ms, missing 3 deadlines; with a priority-inheritance
+  mutex it waited 5 ms and missed none ([RTOS](docs/rtos.md)).
+- **Checking code against something independent.** The C feature extraction is
+  checked against the Python training code, the INT8 inference bit for bit
+  against the reference interpreter, the telemetry encoder against the ground
+  station's decoder with a shared reference packet, and the ARINC 429 encoder
+  against a separate decoder in the Renode model.
+- **The process tools found real defects.** Generating the traceability matrix
+  turned up an LLR naming a test that no longer existed, and a wildcard that had
+  linked a requirement to tests in five unrelated modules. Measuring MC/DC showed
+  that no test checked an operator override request while landing.
+- **Tools that disagree with the code.** cppcheck 2.10 silently ignored the
+  `-isystem` include paths, so its first MISRA run never saw the FreeRTOS and lwIP
+  headers; the checker now passes them explicitly and fails on any missing header.
+  In CI, the MISRA report differed from the local one: its count of findings in
+  third-party headers depended on how the submodules were checked out. That count
+  is no longer recorded, and both checkers now print a diff when they fail.
+- **An emulator is not hardware.** Renode's IMU model scales its readings
+  differently from the datasheet and does not model the RCC reset flags; the
+  co-simulation compensates for the first, and the reset cause falls back to a
+  marker in the reset record for the second. What simulation cannot show is
+  listed under *Limitations* below.
 
 ## Architecture
 

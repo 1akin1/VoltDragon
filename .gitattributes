@@ -1,3 +1,6 @@
 * text=auto eol=lf
 *.pdf binary
 *.tflite binary
+*.gif binary
+*.png binary
+*.mp4 binary

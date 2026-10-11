@@ -38,6 +38,9 @@ python -m ground_station.display --replay build/demo/link-loss.tlm --video link-
     --follow 250 --speed 2 --title "Ground link lost at 12 s"
 ```
 
+**README GIFs**: `bash tools/demo/readme_gifs.sh build/demo` turns the clips into
+the GIFs in `docs/images` (3x speed, 900 pixels wide, 1 to 2 MB each).
+
 **Screen recordings** (the rest), for example with OBS Studio at 1920 × 1080:
 the Renode consoles, the bus monitor's log, and pages of the repository on GitHub.
 
