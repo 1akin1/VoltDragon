@@ -15,6 +15,7 @@ Needs clang-19, llvm-19 and libclang-rt-19-dev (Debian bookworm), CMake and Ninj
 from __future__ import annotations
 
 import argparse
+import difflib
 import json
 import os
 import re
@@ -260,6 +261,10 @@ def main() -> int:
                 "error: docs/mcdc-report.md is out of date; run python3 tools/coverage/mcdc.py",
                 file=sys.stderr,
             )
+            sys.stderr.writelines(difflib.unified_diff(
+                current.splitlines(keepends=True), text.splitlines(keepends=True),
+                "docs/mcdc-report.md (committed)", "docs/mcdc-report.md (this run)",
+            ))
             return 1
     elif current != text:
         OUT_DOC.write_text(text, encoding="utf-8", newline="\n")

@@ -17,6 +17,7 @@ same as the development environment) and a configured debug build
 from __future__ import annotations
 
 import argparse
+import difflib
 import fnmatch
 import json
 import re
@@ -188,7 +189,6 @@ def render(units, findings, plan, rule_count, version) -> tuple[str, list[str]]:
     disapplied, deviations, false_positives = plan
     errors: list[str] = []
     ours = [f for f in findings if not f.path.startswith(THIRD_PARTY)]
-    theirs = [f for f in findings if f.path.startswith(THIRD_PARTY)]
 
     status: dict[Finding, str] = {}
     for f in ours:
@@ -243,7 +243,10 @@ def render(units, findings, plan, rule_count, version) -> tuple[str, list[str]]:
         f"| Disapplied advisory rule | {kinds['Disapplied']} |",
         f"| Tool false positive | {kinds['False positive']} |",
         f"| **Total in project code** | **{len(misra)}** |",
-        f"| In third-party headers (not counted) | {sum(f.misra for f in theirs)} |",
+        "",
+        "Findings located in third-party headers (FreeRTOS, lwIP) are not counted; their",
+        "number depends on the checkout of the submodules, so it is printed by the checker",
+        "but not recorded here.",
         "",
         "## Findings by rule",
         "",
@@ -347,12 +350,20 @@ def main() -> int:
                 "error: docs/misra-report.md is out of date; run python3 tools/misra/misra.py",
                 file=sys.stderr,
             )
+            sys.stderr.writelines(difflib.unified_diff(
+                current.splitlines(keepends=True), text.splitlines(keepends=True),
+                "docs/misra-report.md (committed)", "docs/misra-report.md (this run)",
+            ))
             return 1
     elif current != text:
         OUT_DOC.write_text(text, encoding="utf-8", newline="\n")
         print(f"wrote {OUT_DOC.relative_to(ROOT).as_posix()}")
     ours = [f for f in findings if f.misra and not f.path.startswith(THIRD_PARTY)]
-    print(f"{len(units)} files, {len(ours)} MISRA findings in project code, {len(errors)} errors")
+    theirs = [f for f in findings if f.misra and f.path.startswith(THIRD_PARTY)]
+    print(
+        f"{len(units)} files, {len(ours)} MISRA findings in project code "
+        f"({len(theirs)} in third-party headers, not counted), {len(errors)} errors"
+    )
     return 1 if errors else 0
 
 

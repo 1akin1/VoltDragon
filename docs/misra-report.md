@@ -24,7 +24,10 @@ checker runs on every CI build and fails if any finding is open.
 | Disapplied advisory rule | 250 |
 | Tool false positive | 27 |
 | **Total in project code** | **458** |
-| In third-party headers (not counted) | 128 |
+
+Findings located in third-party headers (FreeRTOS, lwIP) are not counted; their
+number depends on the checkout of the submodules, so it is printed by the checker
+but not recorded here.
 
 ## Findings by rule
 
